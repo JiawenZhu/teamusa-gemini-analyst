@@ -57,15 +57,21 @@ export async function sendChat(message: string, archetype_id: string, history: {
 
 /**
  * Streaming version of sendChat — calls /api/chat-stream (SSE).
- * Invokes onChunk(sentence, index) for each sentence as it arrives,
- * then onDone(fullText) when the stream completes.
- * Use this when voice is enabled to start TTS immediately per chunk.
+ *
+ * The backend now embeds pre-synthesized Gemini TTS audio inside each SSE event
+ * using progressive grouping:
+ *   Group 0: 1 sentence  → audio ready almost immediately (min TTFA)
+ *   Group 1: 2 sentences → arrives while group 0 is playing
+ *   Group 2+:3 sentences → background; plays after previous group finishes
+ *
+ * onChunk(text, audiob64|null, index) — fires per group as it arrives from SSE.
+ * onDone(fullText) — fires when the stream completes.
  */
 export async function sendChatStream(
   message: string,
   archetype_id: string,
   history: { role: string; text: string }[],
-  onChunk: (sentence: string, index: number) => void,
+  onChunk: (text: string, audio: string | null, index: number) => void,
   onDone: (fullText: string) => void,
   signal?: AbortSignal,
 ): Promise<void> {
@@ -80,7 +86,7 @@ export async function sendChatStream(
     throw new Error(`Stream failed: ${res.status}`);
   }
 
-  const reader = res.body.getReader();
+  const reader  = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
   const collected: string[] = [];
@@ -91,22 +97,22 @@ export async function sendChatStream(
 
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n\n");
-    buffer = lines.pop() ?? "";  // keep incomplete last chunk
+    buffer = lines.pop() ?? "";
 
     for (const line of lines) {
       const dataLine = line.trim();
       if (!dataLine.startsWith("data:")) continue;
       try {
         const payload = JSON.parse(dataLine.slice(5).trim()) as {
-          chunk: string; index: number; done: boolean;
+          text: string; audio: string | null; index: number; done: boolean;
         };
         if (payload.done) {
           onDone(collected.join(" "));
           return;
         }
-        if (payload.chunk) {
-          collected.push(payload.chunk);
-          onChunk(payload.chunk, payload.index);
+        if (payload.text) {
+          collected.push(payload.text);
+          onChunk(payload.text, payload.audio ?? null, payload.index);
         }
       } catch {
         // Malformed SSE line — skip
@@ -114,6 +120,5 @@ export async function sendChatStream(
     }
   }
 
-  // Fallback if stream ended without a done event
   onDone(collected.join(" "));
 }

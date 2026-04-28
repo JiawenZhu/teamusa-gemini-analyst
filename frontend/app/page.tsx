@@ -155,10 +155,14 @@ export default function Page() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [micState, setMicState] = useState<"idle" | "listening" | "processing">("idle");
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  // Audio queue — ensures sentence chunks play in order even if synthesis overlaps
-  const audioQueueRef = useRef<string[]>([]);   // queue of base64 MP3 chunks
-  const playingRef   = useRef(false);            // true while a chunk is playing
+  // ── AudioContext-based gapless playback ────────────────────────────────────────
+  // We schedule each decoded WAV buffer at an exact AudioContext time so
+  // chunk N starts playing at the precise moment chunk N-1 ends — zero gaps.
+  const audioCtxRef    = useRef<AudioContext | null>(null);
+  const nextStartRef   = useRef<number>(0);          // AudioContext time of next chunk start
+  const activeNodesRef = useRef<AudioBufferSourceNode[]>([]); // for stopAudio
+  const chunkCountRef  = useRef<number>(0);          // total chunks scheduled
+  const endedCountRef  = useRef<number>(0);          // chunks that have finished
   const recognitionRef = useRef<any>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -198,71 +202,97 @@ export default function Page() {
     }, 100);
   }, [h, w, age, archetypes]);
 
-  // ── Audio queue — plays base64 MP3 chunks sequentially ─────────────────
-  const drainAudioQueue = useCallback(() => {
-    if (playingRef.current || audioQueueRef.current.length === 0) return;
-    const b64 = audioQueueRef.current.shift()!;
-    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    const url   = URL.createObjectURL(new Blob([bytes], { type: "audio/mp3" }));
-    const el    = new Audio(url);
-    audioRef.current   = el;
-    playingRef.current = true;
-    setIsSpeaking(true);
-    el.onended = () => {
-      URL.revokeObjectURL(url);
-      playingRef.current = false;
-      if (audioQueueRef.current.length > 0) {
-        drainAudioQueue(); // play next chunk
-      } else {
-        setIsSpeaking(false);
-      }
-    };
-    el.play().catch(() => { playingRef.current = false; setIsSpeaking(false); });
+  // ── AudioContext gapless engine ───────────────────────────────────────────────────
+
+  // Ensure AudioContext exists (must be created inside a user gesture on Safari)
+  const getAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+      audioCtxRef.current = new AudioContext();
+      nextStartRef.current = 0;
+    }
+    return audioCtxRef.current;
   }, []);
 
-  // Synthesize one sentence chunk and push to the playback queue
-  const enqueueChunkTTS = useCallback(async (sentence: string) => {
+  /**
+   * Enqueue a pre-synthesized base64 WAV chunk for gapless playback.
+   * AudioContext.decodeAudioData() converts it to PCM, then schedules
+   * the AudioBufferSourceNode to start exactly when the previous chunk ends.
+   */
+  const enqueueWavChunk = useCallback(async (b64Wav: string) => {
     try {
-      const res = await fetch("/api/tts", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: sentence }),
-      });
-      const { audio } = await res.json();
-      if (audio) {
-        audioQueueRef.current.push(audio);
-        drainAudioQueue(); // starts immediately if nothing is playing
-      } else {
-        // Fallback: browser TTS for this sentence
-        const utter = new SpeechSynthesisUtterance(sentence.replace(/[*#_]/g, ""));
-        utter.rate = 0.9; utter.pitch = 0.8;
-        window.speechSynthesis.speak(utter);
-      }
-    } catch { setIsSpeaking(false); }
-  }, [drainAudioQueue]);
+      const ctx   = getAudioCtx();
+      const bytes = Uint8Array.from(atob(b64Wav), c => c.charCodeAt(0)).buffer;
+      const buf   = await ctx.decodeAudioData(bytes);
+      const node  = ctx.createBufferSource();
+      node.buffer = buf;
+      node.connect(ctx.destination);
 
-  // Stop all audio immediately and clear the queue
+      // Schedule to start right after the previous chunk ends
+      const startAt = Math.max(ctx.currentTime, nextStartRef.current);
+      nextStartRef.current = startAt + buf.duration;
+      chunkCountRef.current += 1;
+      activeNodesRef.current.push(node);
+      setIsSpeaking(true);
+
+      node.onended = () => {
+        endedCountRef.current += 1;
+        activeNodesRef.current = activeNodesRef.current.filter(n => n !== node);
+        if (endedCountRef.current >= chunkCountRef.current) {
+          setIsSpeaking(false); // all chunks done
+        }
+      };
+      node.start(startAt);
+    } catch (e) {
+      console.warn("AudioContext chunk decode failed:", e);
+      // Non-fatal — skip this chunk, playback continues with next
+    }
+  }, [getAudioCtx]);
+
+  /** Stop all audio immediately and reset the scheduler. */
   const stopAudio = useCallback(() => {
-    audioRef.current?.pause();
-    audioRef.current = null;
-    audioQueueRef.current = [];
-    playingRef.current = false;
+    for (const node of activeNodesRef.current) {
+      try { node.stop(); } catch { /* already stopped */ }
+    }
+    activeNodesRef.current = [];
+    chunkCountRef.current  = 0;
+    endedCountRef.current  = 0;
+    nextStartRef.current   = 0;
     window.speechSynthesis?.cancel();
     setIsSpeaking(false);
   }, []);
 
-  // Single-shot TTS for a full text (used in fallback path when streaming fails)
+  /** Fallback: synthesize text server-side then enqueue. Used when SSE audio is null. */
+  const enqueueChunkTTS = useCallback(async (text: string) => {
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const { audio } = await res.json();
+      if (audio) {
+        await enqueueWavChunk(audio);
+      } else {
+        // Last resort: browser TTS (no Gemini key available)
+        const utter = new SpeechSynthesisUtterance(text.replace(/[*#_]/g, ""));
+        utter.rate = 0.9; utter.pitch = 0.8;
+        window.speechSynthesis.speak(utter);
+      }
+    } catch { /* non-fatal */ }
+  }, [enqueueWavChunk]);
+
+  /** Single-shot TTS (fallback when SSE stream fails entirely). */
   const playTTS = useCallback(async (text: string) => {
     if (!voiceEnabled) return;
     stopAudio();
     await enqueueChunkTTS(text);
   }, [voiceEnabled, stopAudio, enqueueChunkTTS]);
 
+
   // ── Mic / Speech-to-Text ──────────────────────────────────────────────
   const startListening = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) { alert("Speech recognition is not supported. Please use Chrome."); return; }
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    window.speechSynthesis?.cancel(); setIsSpeaking(false);
+    stopAudio();
     const rec = new SpeechRecognition();
     rec.lang = "en-US"; rec.interimResults = false; rec.maxAlternatives = 1;
     recognitionRef.current = rec;
@@ -305,12 +335,17 @@ export default function Page() {
     setChat(c => [...c, { role: "user", text: m }]);
 
     if (voiceEnabled) {
-      // ── STREAMING PATH (voice ON): sentence chunks → TTS queue ──────────
-      stopAudio();                          // clear any previous audio
-      audioQueueRef.current = [];           // reset queue
+      // ── STREAMING PATH (voice ON) ─────────────────────────────────────────────
+      // SSE events arrive with pre-synthesized Gemini TTS WAV audio embedded.
+      // Group 0 (1 sentence) arrives ~1s after agent completes — min TTFA.
+      // AudioContext schedules each WAV to play exactly when previous ends.
+      stopAudio();
+      // Reset scheduler counters for this new response
+      chunkCountRef.current = 0;
+      endedCountRef.current = 0;
+      nextStartRef.current  = 0;
       let rendered = "";
 
-      // Add a placeholder bot message so the UI shows text as it streams
       setChat(c => [...c, { role: "bot", text: "" }]);
 
       try {
@@ -318,18 +353,22 @@ export default function Page() {
           m,
           result.archetype_id,
           currentChat,
-          // onChunk: render each sentence into the placeholder + kick off TTS
-          (sentence, _idx) => {
-            rendered += (rendered ? " " : "") + sentence;
+          // onChunk: text + pre-synthesized audio arrive together from SSE
+          async (text, audio, _idx) => {
+            rendered += (rendered ? " " : "") + text;
             setChat(c => {
               const updated = [...c];
               updated[updated.length - 1] = { role: "bot", text: rendered };
               return updated;
             });
-            // Fire-and-forget TTS synthesis for this sentence
-            enqueueChunkTTS(sentence);
+            if (audio) {
+              // Audio is already synthesized by backend — schedule it immediately
+              await enqueueWavChunk(audio);
+            } else {
+              // Fallback: request synthesis from /api/tts
+              await enqueueChunkTTS(text);
+            }
           },
-          // onDone: finalise text (in case collected differs from rendered)
           (fullText) => {
             setChat(c => {
               const updated = [...c];
@@ -340,7 +379,6 @@ export default function Page() {
           },
         );
       } catch (err) {
-        // SSE failed — graceful fallback to non-streaming
         console.warn("Stream failed, falling back:", err);
         const reply = await sendChat(m, result.archetype_id, currentChat);
         setChat(c => {
@@ -352,12 +390,12 @@ export default function Page() {
         if (reply) playTTS(reply);
       }
     } else {
-      // ── NON-STREAMING PATH (voice OFF): full JSON response ──────────
+      // ── NON-STREAMING PATH (voice OFF) ──────────────────────────────────────
       const reply = await sendChat(m, result.archetype_id, currentChat);
       setChat(c => [...c, { role: "bot", text: reply }]);
       setCL(false);
     }
-  }, [msg, result, chat, voiceEnabled, enqueueChunkTTS, playTTS, stopAudio]);
+  }, [msg, result, chat, voiceEnabled, enqueueWavChunk, enqueueChunkTTS, playTTS, stopAudio]);
 
   const accent = result?.archetype?.color || "#C9A227";
 

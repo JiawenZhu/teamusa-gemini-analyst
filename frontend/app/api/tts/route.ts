@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export async function POST(req: NextRequest) {
   const { text } = await req.json();
 
@@ -7,50 +9,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "text is required" }, { status: 400 });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey) {
-    // Graceful degradation — return null so client falls back to browser TTS
-    return NextResponse.json({ audio: null });
-  }
-
   try {
-    // Trim text to 2000 chars max to avoid large TTS costs
-    const trimmed = text.replace(/(\*\*|__)/g, "").slice(0, 2000);
+    // Delegate synthesis to the FastAPI backend which uses gemini-3.1-flash-tts-preview.
+    // The backend returns { audio: "<base64 WAV>" } or { audio: null } on failure.
+    const res = await fetch(`${API}/api/tts`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+      // 12 s hard timeout — Gemini TTS is fast but we allow for retries
+      signal: AbortSignal.timeout(12_000),
+    });
 
-    const response = await fetch(
-      `https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input: { text: trimmed },
-          voice: {
-            languageCode: "en-US",
-            name: "en-US-Journey-D",   // Deep, authoritative male voice
-            ssmlGender: "MALE",
-          },
-          audioConfig: {
-            audioEncoding: "MP3",
-            speakingRate: 0.9,         // Slightly slower = more "authoritative"
-            pitch: -2.0,               // Lower pitch for gravitas
-            volumeGainDb: 2.0,
-            effectsProfileId: ["headphone-class-device"],
-          },
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const err = await response.text();
-      console.error("Google TTS error:", err);
-      return NextResponse.json({ audio: null }); // graceful degradation
+    if (!res.ok) {
+      console.error("Backend TTS error:", res.status);
+      return NextResponse.json({ audio: null });
     }
 
-    const data = await response.json();
-    return NextResponse.json({ audio: data.audioContent }); // base64 MP3
+    const data = await res.json();
+    return NextResponse.json({ audio: data.audio ?? null });
   } catch (e) {
-    console.error("TTS route error:", e);
+    console.error("TTS proxy error:", e);
     return NextResponse.json({ audio: null });
   }
 }

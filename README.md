@@ -3,11 +3,11 @@
 
 **[Team USA × Google Cloud Hackathon 2026](https://vibecodeforgoldwithgoogle.devpost.com/)**
 
-> A fan-facing AI system powered by **Gemini 2.5 Flash** that matches your body metrics to 120 years of Olympic and Paralympic Team USA athletes — then lets you chat with a Gemini agent grounded in a real PostgreSQL database of 271,116 athlete records. Built with FastAPI, Next.js, and Google Cloud Run.
+> A fan-facing AI system powered by **Gemini 3 Flash Preview** that matches your body metrics to 120 years of Olympic and Paralympic Team USA athletes — then lets you chat with a Gemini agent grounded in a real PostgreSQL database of 271,116 athlete records. Built with FastAPI, Next.js, and Google Cloud Run.
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run-4285F4?logo=googlecloud)](https://cloud.google.com/run)
-[![Gemini](https://img.shields.io/badge/Gemini-2.5%20Flash-8E75B2?logo=google)](https://ai.google.dev/)
+[![Gemini](https://img.shields.io/badge/Gemini-3%20Flash%20Preview-8E75B2?logo=google)](https://ai.google.dev/)
 
 ---
 
@@ -16,7 +16,7 @@
 1. **Enter your height, weight, and age** — the app computes your BMI and biometric profile
 2. **Instant K-means matching** — scikit-learn clusters 8,108 real USA athlete records to find your archetype (pure Python, zero AI latency)
 3. **Explore your archetype** — see which Olympic and Paralympic sports historically align with your body type, with percentile stats against real Team USA athletes
-4. **Chat with Gemini** — a multi-turn Gemini 2.5 Flash agent with 10 SQL tools grounded in a real Cloud SQL PostgreSQL database; ask anything about Olympic history
+4. **Chat with Gemini** — a multi-turn Gemini 3 Flash Preview agent with 10 SQL tools grounded in a real Cloud SQL PostgreSQL database; ask anything about Olympic history
 
 ## The 6 Archetypes
 
@@ -33,7 +33,7 @@
 
 | Layer | Technology |
 |---|---|
-| **AI** | Gemini 2.5 Flash (`gemini-2.5-flash`) · Gemini Function Calling (10 SQL tools) · `google-genai` SDK |
+| **AI** | Gemini 3 Flash Preview (`gemini-3-flash-preview`) · Gemini Function Calling (10 SQL tools) · `google-genai` SDK |
 | **Backend** | Python 3.13 · FastAPI · scikit-learn (K-means) · psycopg2 · slowapi |
 | **Frontend** | Next.js 16 · TypeScript · Tailwind CSS · Web Speech API (voice input) · Native Browser TTS (voice output) |
 | **Database** | Cloud SQL PostgreSQL · 271,116 rows · 6 normalized tables · `v_results_full` view |
@@ -85,7 +85,7 @@ The React frontend has been deeply modularized for performance and maintainabili
                           ┌──────────────┘         └─────────────┐
                           ▼ /api/match                            ▼ /api/chat
            ┌──────────────────────────┐        ┌─────────────────────────────┐
-           │  In-Memory Data Layer    │        │  Gemini 2.5 Flash Agent     │
+           │  In-Memory Data Layer    │        │  Gemini 3 Flash Preview Agent│
            │  (loaded at startup)     │        │  (POST /api/chat only)      │
            │                          │        │                             │
            │  8,108 athlete records   │        │  System prompt + 10 tools:  │

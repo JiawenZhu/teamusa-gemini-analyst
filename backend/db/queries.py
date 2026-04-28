@@ -23,9 +23,13 @@ def clean_row(row):
             row[k] = None
     return row
 
-def get_medal_stats(noc=None, year=None, medal=None, sport=None):
-    """How many medals did a nation win in a specific year or sport?"""
-    query = "SELECT COUNT(*) as count FROM v_results_full WHERE 1=1"
+def get_medal_stats(noc=None, year=None, medal=None, sport=None, year_from=None, year_to=None):
+    """
+    Count actual medals won. Always filters medal IS NOT NULL so only Gold/Silver/Bronze rows are counted.
+    Use year for a single year, or year_from + year_to for a range (e.g. year_from=2008, year_to=2012).
+    """
+    # Always restrict to actual medal-winning rows
+    query = "SELECT COUNT(*) as medal_count FROM v_results_full WHERE medal IS NOT NULL"
     params = []
     if noc:
         query += " AND noc = %s"
@@ -33,13 +37,19 @@ def get_medal_stats(noc=None, year=None, medal=None, sport=None):
     if year:
         query += " AND year = %s"
         params.append(year)
+    if year_from:
+        query += " AND year >= %s"
+        params.append(year_from)
+    if year_to:
+        query += " AND year <= %s"
+        params.append(year_to)
     if medal:
         query += " AND medal = %s"
         params.append(medal)
     if sport:
         query += " AND sport = %s"
         params.append(sport)
-    
+
     with get_db_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(query, params)

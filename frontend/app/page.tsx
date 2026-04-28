@@ -207,8 +207,11 @@ export default function Page() {
   // Ensure AudioContext exists (must be created inside a user gesture on Safari)
   const getAudioCtx = useCallback(() => {
     if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
-      audioCtxRef.current = new AudioContext();
+      audioCtxRef.current = new window.AudioContext();
       nextStartRef.current = 0;
+    }
+    if (audioCtxRef.current.state === "suspended") {
+      audioCtxRef.current.resume();
     }
     return audioCtxRef.current;
   }, []);
@@ -220,9 +223,15 @@ export default function Page() {
    */
   const enqueueWavChunk = useCallback(async (b64Wav: string) => {
     try {
+      console.log("Audio pipeline: Decoding chunk of length", b64Wav.length);
       const ctx   = getAudioCtx();
-      const bytes = Uint8Array.from(atob(b64Wav), c => c.charCodeAt(0)).buffer;
+      
+      // Fast base64 to ArrayBuffer using fetch (handles all padding/newlines safely)
+      const res = await fetch(`data:audio/wav;base64,${b64Wav}`);
+      const bytes = await res.arrayBuffer();
+      
       const buf   = await ctx.decodeAudioData(bytes);
+      console.log("Audio pipeline: Decoded buffer duration", buf.duration);
       const node  = ctx.createBufferSource();
       node.buffer = buf;
       node.connect(ctx.destination);
@@ -327,6 +336,34 @@ export default function Page() {
     setTimeout(() => setCopied(false), 2000);
   }, [result]);
 
+  const playNativeTTS = useCallback((text: string) => {
+    const utter = new SpeechSynthesisUtterance(text.replace(/[*#_]/g, ""));
+    const voices = window.speechSynthesis.getVoices();
+    
+    // Try to find a premium, high-quality human-like voice
+    const bestVoice = voices.find(v => v.name.includes('Google US English')) ||
+                      voices.find(v => v.name.includes('Samantha')) ||
+                      voices.find(v => v.name.includes('Daniel') || v.name.includes('Karen') || v.name.includes('Moira')) ||
+                      voices.find(v => v.lang.startsWith('en-US')) ||
+                      voices.find(v => v.lang.startsWith('en'));
+                      
+    if (bestVoice) {
+      utter.voice = bestVoice;
+    }
+    utter.rate = 1.0;
+    utter.pitch = 1.0;
+    
+    utter.onstart = () => setIsSpeaking(true);
+    utter.onend = () => {
+      // Small delay to ensure consecutive chunks keep speaking true
+      setTimeout(() => {
+        if (!window.speechSynthesis.speaking) setIsSpeaking(false);
+      }, 50);
+    };
+    
+    window.speechSynthesis.speak(utter);
+  }, []);
+
   const doChat = useCallback(async () => {
     if (!msg.trim() || !result) return;
     const m = msg.trim();
@@ -336,11 +373,7 @@ export default function Page() {
 
     if (voiceEnabled) {
       // ── STREAMING PATH (voice ON) ─────────────────────────────────────────────
-      // SSE events arrive with pre-synthesized Gemini TTS WAV audio embedded.
-      // Group 0 (1 sentence) arrives ~1s after agent completes — min TTFA.
-      // AudioContext schedules each WAV to play exactly when previous ends.
       stopAudio();
-      // Reset scheduler counters for this new response
       chunkCountRef.current = 0;
       endedCountRef.current = 0;
       nextStartRef.current  = 0;
@@ -353,7 +386,6 @@ export default function Page() {
           m,
           result.archetype_id,
           currentChat,
-          // onChunk: text + pre-synthesized audio arrive together from SSE
           async (text, audio, _idx) => {
             rendered += (rendered ? " " : "") + text;
             setChat(c => {
@@ -361,13 +393,17 @@ export default function Page() {
               updated[updated.length - 1] = { role: "bot", text: rendered };
               return updated;
             });
+            
+            // Bypass Gemini TTS for now and use premium native browser voice
+            playNativeTTS(text);
+            
+            /*
             if (audio) {
-              // Audio is already synthesized by backend — schedule it immediately
               await enqueueWavChunk(audio);
             } else {
-              // Fallback: request synthesis from /api/tts
               await enqueueChunkTTS(text);
             }
+            */
           },
           (fullText) => {
             setChat(c => {
@@ -387,7 +423,7 @@ export default function Page() {
           return updated;
         });
         setCL(false);
-        if (reply) playTTS(reply);
+        if (reply) playNativeTTS(reply);
       }
     } else {
       // ── NON-STREAMING PATH (voice OFF) ──────────────────────────────────────

@@ -1,0 +1,574 @@
+extend type Athlete {
+  """
+  ✨ List `Result` objects in a one-to-many relationship (where `Result`.`athlete` is this object).
+  """
+  results_on_athlete(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Result_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Result_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Result_Having
+  ): [Result!]! @fdc_generated(from: "Result.athlete", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Athlete", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Athlete` table.
+  """
+  _count: Int! @fdc_generated(from: "Athlete.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Athlete` table where the `height` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  height_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Athlete.height", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Athlete` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Athlete.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Athlete` table where the `name` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  name_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Athlete.name", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Athlete` table where the `sex` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  sex_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Athlete.sex", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Athlete` table where the `weight` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  weight_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Athlete.weight", purpose: QUERY_COUNT)
+  """
+  ✨ Sum the `height` field in the `Athlete` table.
+  """
+  height_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Athlete.height", purpose: QUERY_SUM)
+  """
+  ✨ Sum the `weight` field in the `Athlete` table.
+  """
+  weight_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Athlete.weight", purpose: QUERY_SUM)
+  """
+  ✨ Average the `height` field in the `Athlete` table.
+  """
+  height_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Athlete.height", purpose: QUERY_AVG)
+  """
+  ✨ Average the `weight` field in the `Athlete` table.
+  """
+  weight_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Athlete.weight", purpose: QUERY_AVG)
+  """
+  ✨ Minimum of the `height` field in the `Athlete` table.
+  """
+  height_min: Float @fdc_generated(from: "Athlete.height", purpose: QUERY_MIN)
+  """
+  ✨ Minimum of the `weight` field in the `Athlete` table.
+  """
+  weight_min: Float @fdc_generated(from: "Athlete.weight", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `height` field in the `Athlete` table.
+  """
+  height_max: Float @fdc_generated(from: "Athlete.height", purpose: QUERY_MAX)
+  """
+  ✨ Maximum of the `weight` field in the `Athlete` table.
+  """
+  weight_max: Float @fdc_generated(from: "Athlete.weight", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Athlete.id", purpose: ENTITY_ID)
+}
+extend type Event {
+  """
+  ✨ List `Result` objects in a one-to-many relationship (where `Result`.`event` is this object).
+  """
+  results_on_event(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Result_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Result_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Result_Having
+  ): [Result!]! @fdc_generated(from: "Result.event", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Event", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Event` table.
+  """
+  _count: Int! @fdc_generated(from: "Event.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Event` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Event.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Event` table where the `name` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  name_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Event.name", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Event` table where the `sportId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  sportId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Event.sportId", purpose: QUERY_COUNT)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Event.id", purpose: ENTITY_ID)
+}
+extend type Games {
+  """
+  ✨ List `Result` objects in a one-to-many relationship (where `Result`.`games` is this object).
+  """
+  results_on_games(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Result_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Result_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Result_Having
+  ): [Result!]! @fdc_generated(from: "Result.games", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Games", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Games` table.
+  """
+  _count: Int! @fdc_generated(from: "Games.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Games` table where the `city` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  city_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Games.city", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Games` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Games.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Games` table where the `season` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  season_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Games.season", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Games` table where the `year` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  year_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Games.year", purpose: QUERY_COUNT)
+  """
+  ✨ Sum the `year` field in the `Games` table.
+  """
+  year_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Int @fdc_generated(from: "Games.year", purpose: QUERY_SUM)
+  """
+  ✨ Average the `year` field in the `Games` table.
+  """
+  year_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Games.year", purpose: QUERY_AVG)
+  """
+  ✨ Minimum of the `year` field in the `Games` table.
+  """
+  year_min: Int @fdc_generated(from: "Games.year", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `year` field in the `Games` table.
+  """
+  year_max: Int @fdc_generated(from: "Games.year", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Games.id", purpose: ENTITY_ID)
+}
+extend type NocRegion {
+  """
+  ✨ List `Result` objects in a one-to-many relationship (where `Result`.`noc` is this object).
+  """
+  results_on_noc(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Result_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Result_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Result_Having
+  ): [Result!]! @fdc_generated(from: "Result.noc", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "NocRegion", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `NocRegion` table.
+  """
+  _count: Int! @fdc_generated(from: "NocRegion.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `NocRegion` table where the `noc` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  noc_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "NocRegion.noc", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `NocRegion` table where the `notes` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  notes_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "NocRegion.notes", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `NocRegion` table where the `region` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  region_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "NocRegion.region", purpose: QUERY_COUNT)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "NocRegion.noc", purpose: ENTITY_ID)
+}
+extend type Result {
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Result", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Result` table.
+  """
+  _count: Int! @fdc_generated(from: "Result.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Result` table where the `age` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  age_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Result.age", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Result` table where the `athleteId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  athleteId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Result.athleteId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Result` table where the `eventId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  eventId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Result.eventId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Result` table where the `gamesId` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  gamesId_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Result.gamesId", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Result` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Result.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Result` table where the `medal` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  medal_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Result.medal", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Result` table where the `nocNoc` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  nocNoc_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Result.nocNoc", purpose: QUERY_COUNT)
+  """
+  ✨ Sum the `age` field in the `Result` table.
+  """
+  age_sum(
+    """
+    Set to true to sum the distinct values.
+    """
+    distinct: Boolean = false
+  ): Int @fdc_generated(from: "Result.age", purpose: QUERY_SUM)
+  """
+  ✨ Average the `age` field in the `Result` table.
+  """
+  age_avg(
+    """
+    Set to true to average the distinct values.
+    """
+    distinct: Boolean = false
+  ): Float @fdc_generated(from: "Result.age", purpose: QUERY_AVG)
+  """
+  ✨ Minimum of the `age` field in the `Result` table.
+  """
+  age_min: Int @fdc_generated(from: "Result.age", purpose: QUERY_MIN)
+  """
+  ✨ Maximum of the `age` field in the `Result` table.
+  """
+  age_max: Int @fdc_generated(from: "Result.age", purpose: QUERY_MAX)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Result.id", purpose: ENTITY_ID)
+}
+extend type Sport {
+  """
+  ✨ List `Event` objects in a one-to-many relationship (where `Event`.`sport` is this object).
+  """
+  events_on_sport(
+    """
+    Filter condition to narrow down the query results.
+    """
+    where: Event_Filter
+
+    """
+    Order the query results by specific fields.
+    """
+    orderBy: [Event_Order!]
+
+    """
+    Number of rows to skip before starting to return the results.
+    """
+    offset: Int
+
+    """
+    Maximum number of rows to return (defaults to 100 rows).
+    """
+    limit: Int = 100
+
+    """
+    Set to true to return distinct results.
+    """
+    distinct: Boolean = false
+
+    """
+    Filter condition to apply to the groups of aggregate queries.
+    """
+    having: Event_Having
+  ): [Event!]! @fdc_generated(from: "Event.sport", purpose: QUERY_MULTIPLE_ONE_TO_MANY)
+  """
+  Implicit metadata field that cannot be written. It provides extra information about query results.
+  """
+  _metadata: _Metadata @fdc_generated(from: "Sport", purpose: METADATA_FIELD)
+  """
+  ✨ Count the number of rows in the `Sport` table.
+  """
+  _count: Int! @fdc_generated(from: "Sport.", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Sport` table where the `id` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  id_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Sport.id", purpose: QUERY_COUNT)
+  """
+  ✨ Count the number of rows in the `Sport` table where the `name` field is non-null. Pass the `distinct` argument to instead count the number of distinct values.
+  """
+  name_count(
+    """
+    Set to true to count the number of distinct values.
+    """
+    distinct: Boolean = false
+  ): Int! @fdc_generated(from: "Sport.name", purpose: QUERY_COUNT)
+  """
+  A generated field that is used for caching results in SDKs.
+  """
+  _id: ID! @fdc_generated(from: "Sport.id", purpose: ENTITY_ID)
+}

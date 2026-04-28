@@ -1,0 +1,200 @@
+# ── Olympic History Oracle Queries ─────────────────────────────────────────────
+# These queries power the Gemini function-calling tools in olympic_agent.py
+# and pipeline.py. Each query maps 1:1 to a tool the AI agent can call.
+
+# ── 1. Medal Stats ─────────────────────────────────────────────────────────────
+# Tool: get_medal_stats(noc, year, medal, sport)
+query GetMedalStats(
+  $noc:    String
+  $year:   Int
+  $medal:  String
+  $sport:  String
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      _and: [
+        { noc: { noc: { eq: $noc } } }
+        { games: { year: { eq: $year } } }
+        { medal: { eq: $medal } }
+        { event: { sport: { name: { eq: $sport } } } }
+      ]
+    }
+  ) {
+    id
+    medal
+    athlete { name sex height weight }
+    games { year season city }
+    event { name sport { name } }
+    noc { noc region }
+  }
+}
+
+# ── 2. Athlete Biometrics ──────────────────────────────────────────────────────
+# Tool: get_athlete_biometrics(noc, sport, sex)
+query GetAthleteBiometrics(
+  $noc:   String
+  $sport: String
+  $sex:   String
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      _and: [
+        { noc: { noc: { eq: $noc } } }
+        { event: { sport: { name: { eq: $sport } } } }
+        { athlete: { sex: { eq: $sex } } }
+      ]
+    }
+  ) {
+    athlete { name sex height weight }
+    event { sport { name } }
+    noc { noc region }
+  }
+}
+
+# ── 3. Sport Breakdown (top sports by medal count for a NOC / year) ────────────
+# Tool: get_sport_breakdown(noc, year)
+query GetSportBreakdown(
+  $noc:  String
+  $year: Int
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      _and: [
+        { noc: { noc: { eq: $noc } } }
+        { games: { year: { eq: $year } } }
+        { medal: { ne: null } }
+      ]
+    }
+  ) {
+    medal
+    event { name sport { name } }
+    games { year season city }
+    noc { noc region }
+  }
+}
+
+# ── 4. Top Nations by Medal Count ─────────────────────────────────────────────
+# Tool: get_top_nations(medal, sport, limit)
+query GetTopNations(
+  $medal: String
+  $sport: String
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      _and: [
+        { medal: { eq: $medal } }
+        { event: { sport: { name: { eq: $sport } } } }
+      ]
+    }
+  ) {
+    medal
+    noc { noc region }
+    event { sport { name } }
+  }
+}
+
+# ── 5. Athlete Age Stats ───────────────────────────────────────────────────────
+# Tool: get_athlete_age_stats(noc, sport, year)
+query GetAthleteAgeStats(
+  $noc:   String
+  $sport: String
+  $year:  Int
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      _and: [
+        { noc: { noc: { eq: $noc } } }
+        { event: { sport: { name: { eq: $sport } } } }
+        { games: { year: { eq: $year } } }
+        { age: { ne: null } }
+      ]
+    }
+  ) {
+    age
+    athlete { name sex }
+    event { sport { name } }
+    games { year season }
+    noc { noc region }
+  }
+}
+
+# ── 6. Gender Breakdown ────────────────────────────────────────────────────────
+# Tool: get_gender_breakdown(noc, year)
+query GetGenderBreakdown(
+  $noc:  String
+  $year: Int
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      _and: [
+        { noc: { noc: { eq: $noc } } }
+        { games: { year: { eq: $year } } }
+      ]
+    }
+  ) {
+    athlete { sex }
+    games { year season }
+    noc { noc region }
+  }
+}
+
+# ── 7. Games Summary ──────────────────────────────────────────────────────────
+# Tool: get_games_summary(year, season)
+query GetGamesSummary(
+  $year:   Int!
+  $season: String
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      _and: [
+        { games: { year: { eq: $year } } }
+        { games: { season: { eq: $season } } }
+      ]
+    }
+  ) {
+    athlete { name sex }
+    noc { noc region }
+    event { name sport { name } }
+    games { year season city }
+    medal
+  }
+}
+
+# ── 8. Sport History ──────────────────────────────────────────────────────────
+# Tool: get_sport_history(sport)
+query GetSportHistory(
+  $sport: String!
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      event: { sport: { name: { eq: $sport } } }
+    }
+  ) {
+    games { year season city }
+    medal
+    event { name sport { name } }
+    noc { noc region }
+  }
+}
+
+# ── 9. BMI by Sport ───────────────────────────────────────────────────────────
+# Tool: get_bmi_by_sport(noc, year)
+query GetBmiBySport(
+  $noc:  String
+  $year: Int
+) @auth(level: PUBLIC) {
+  results(
+    where: {
+      _and: [
+        { noc: { noc: { eq: $noc } } }
+        { games: { year: { eq: $year } } }
+        { athlete: { height: { ne: null } } }
+        { athlete: { weight: { ne: null } } }
+      ]
+    }
+  ) {
+    athlete { height weight }
+    event { sport { name } }
+    games { year }
+  }
+}

@@ -1,0 +1,14 @@
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.local
+firebase-service-account.json
+backend/data/centroids.pkl
+backend/data/athletes.csv
+*.log
+.DS_Store
+dist/
+build/

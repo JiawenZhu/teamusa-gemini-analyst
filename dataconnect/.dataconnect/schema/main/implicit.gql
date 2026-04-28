@@ -1,0 +1,24 @@
+extend type Event {
+  """
+  ✨ Implicit foreign key field based on `Event`.`sport`. It must match the value of `Sport`.`id`. See `@ref` for how to customize it.
+  """
+  sportId: UUID! @fdc_generated(from: "Event.sport", purpose: IMPLICIT_REF_FIELD)
+}
+extend type Result {
+  """
+  ✨ Implicit foreign key field based on `Result`.`athlete`. It must match the value of `Athlete`.`id`. See `@ref` for how to customize it.
+  """
+  athleteId: UUID! @fdc_generated(from: "Result.athlete", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Result`.`event`. It must match the value of `Event`.`id`. See `@ref` for how to customize it.
+  """
+  eventId: UUID! @fdc_generated(from: "Result.event", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Result`.`games`. It must match the value of `Games`.`id`. See `@ref` for how to customize it.
+  """
+  gamesId: UUID! @fdc_generated(from: "Result.games", purpose: IMPLICIT_REF_FIELD)
+  """
+  ✨ Implicit foreign key field based on `Result`.`noc`. It must match the value of `NocRegion`.`noc`. See `@ref` for how to customize it.
+  """
+  nocNoc: String! @fdc_generated(from: "Result.noc", purpose: IMPLICIT_REF_FIELD)
+}

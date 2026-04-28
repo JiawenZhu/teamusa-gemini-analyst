@@ -1,0 +1,1406 @@
+"""
+✨ `Athlete_KeyOutput` returns the primary key fields of table type `Athlete`.
+
+It has the same format as `Athlete_Key`, but is only used as mutation return value.
+"""
+scalar Athlete_KeyOutput
+"""
+✨ `Event_KeyOutput` returns the primary key fields of table type `Event`.
+
+It has the same format as `Event_Key`, but is only used as mutation return value.
+"""
+scalar Event_KeyOutput
+"""
+✨ `Games_KeyOutput` returns the primary key fields of table type `Games`.
+
+It has the same format as `Games_Key`, but is only used as mutation return value.
+"""
+scalar Games_KeyOutput
+"""
+✨ `NocRegion_KeyOutput` returns the primary key fields of table type `NocRegion`.
+
+It has the same format as `NocRegion_Key`, but is only used as mutation return value.
+"""
+scalar NocRegion_KeyOutput
+"""
+✨ `Result_KeyOutput` returns the primary key fields of table type `Result`.
+
+It has the same format as `Result_Key`, but is only used as mutation return value.
+"""
+scalar Result_KeyOutput
+"""
+✨ `Sport_KeyOutput` returns the primary key fields of table type `Sport`.
+
+It has the same format as `Sport_Key`, but is only used as mutation return value.
+"""
+scalar Sport_KeyOutput
+"""
+✨ Generated data input type for table 'Athlete'. It includes all necessary fields for creating or upserting rows into table.
+"""
+input Athlete_Data {
+  """
+  ✨ Generated from Field `Athlete`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Athlete`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Athlete`.`height` of type `Float`
+  """
+  height: Float
+  """
+  ✨ `_expr` server value variant of `height` (✨ Generated from Field `Athlete`.`height` of type `Float`)
+  """
+  height_expr: Float_Expr @fdc_forbiddenInVariables
+  """
+  ✨ `_update` server value variant of `height` (✨ Generated from Field `Athlete`.`height` of type `Float`)
+  """
+  height_update: [Float_Update!] @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Athlete`.`name` of type `String!`
+  """
+  name: String
+  """
+  ✨ `_expr` server value variant of `name` (✨ Generated from Field `Athlete`.`name` of type `String!`)
+  """
+  name_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Athlete`.`sex` of type `String`
+  """
+  sex: String
+  """
+  ✨ `_expr` server value variant of `sex` (✨ Generated from Field `Athlete`.`sex` of type `String`)
+  """
+  sex_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Athlete`.`weight` of type `Float`
+  """
+  weight: Float
+  """
+  ✨ `_expr` server value variant of `weight` (✨ Generated from Field `Athlete`.`weight` of type `Float`)
+  """
+  weight_expr: Float_Expr @fdc_forbiddenInVariables
+  """
+  ✨ `_update` server value variant of `weight` (✨ Generated from Field `Athlete`.`weight` of type `Float`)
+  """
+  weight_update: [Float_Update!] @fdc_forbiddenInVariables
+}
+"""
+✨ Generated filter input type for table 'Athlete'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Athlete_Filter {
+  """
+  Apply multiple filter conditions using `AND` logic.
+  """
+  _and: [Athlete_Filter!]
+  """
+  Negate the result of the provided filter condition.
+  """
+  _not: Athlete_Filter
+  """
+  Apply multiple filter conditions using `OR` logic.
+  """
+  _or: [Athlete_Filter!]
+  """
+  ✨ Generated from Field `Athlete`.`id` of type `UUID!`
+  """
+  id: UUID_Filter
+  """
+  ✨ Generated from Field `Athlete`.`height` of type `Float`
+  """
+  height: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`name` of type `String!`
+  """
+  name: String_Filter
+  """
+  ✨ Generated from Field `Athlete`.`sex` of type `String`
+  """
+  sex: String_Filter
+  """
+  ✨ Generated from Field `Athlete`.`weight` of type `Float`
+  """
+  weight: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`results_on_athlete` of type `[Result!]!`
+  """
+  results_on_athlete: Result_ListFilter
+}
+"""
+✨ Generated first-row input type for table 'Athlete'. This input selects the first row matching the filter criteria, ordered according to the specified conditions.
+"""
+input Athlete_FirstRow {
+  """
+  Order the result by the specified fields.
+  """
+  orderBy: [Athlete_Order!]
+  """
+  Filters rows based on the specified conditions.
+  """
+  where: Athlete_Filter
+}
+"""
+✨ Generated having input type for table 'Athlete'. This input allows you to filter groups during aggregate queries using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Athlete_Having {
+  """
+  Apply multiple Having conditions using `AND` logic.
+  """
+  _and: [Athlete_Having!]
+  """
+  Whether to apply DISTINCT to the aggregate function.
+  """
+  _distinct: Boolean
+  """
+  Negate the result of the provided Having condition.
+  """
+  _not: Athlete_Having
+  """
+  Apply multiple Having conditions using `OR` logic.
+  """
+  _or: [Athlete_Having!]
+  """
+  ✨ Generated from Field `Athlete`.`_count` of type `Int!`
+  """
+  _count: Int_Filter
+  """
+  ✨ Generated from Field `Athlete`.`height_count` of type `Int!`
+  """
+  height_count: Int_Filter
+  """
+  ✨ Generated from Field `Athlete`.`id_count` of type `Int!`
+  """
+  id_count: Int_Filter
+  """
+  ✨ Generated from Field `Athlete`.`name_count` of type `Int!`
+  """
+  name_count: Int_Filter
+  """
+  ✨ Generated from Field `Athlete`.`sex_count` of type `Int!`
+  """
+  sex_count: Int_Filter
+  """
+  ✨ Generated from Field `Athlete`.`weight_count` of type `Int!`
+  """
+  weight_count: Int_Filter
+  """
+  ✨ Generated from Field `Athlete`.`height_sum` of type `Float`
+  """
+  height_sum: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`weight_sum` of type `Float`
+  """
+  weight_sum: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`height_avg` of type `Float`
+  """
+  height_avg: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`weight_avg` of type `Float`
+  """
+  weight_avg: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`height_min` of type `Float`
+  """
+  height_min: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`weight_min` of type `Float`
+  """
+  weight_min: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`height_max` of type `Float`
+  """
+  height_max: Float_Filter
+  """
+  ✨ Generated from Field `Athlete`.`weight_max` of type `Float`
+  """
+  weight_max: Float_Filter
+}
+"""
+✨ Generated key input type for table 'Athlete'. It represents the primary key fields used to uniquely identify a row in the table.
+"""
+input Athlete_Key {
+  """
+  ✨ Generated from Field `Athlete`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Athlete`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated list filter input type for table 'Athlete'. This input applies filtering logic based on the count or existence of related objects that matches certain criteria.
+"""
+input Athlete_ListFilter {
+  """
+  The desired number of objects that match the condition (defaults to at least one).
+  """
+  count: Int_Filter = {gt:0}
+  """
+  Condition of the related objects to filter for.
+  """
+  exist: Athlete_Filter
+}
+"""
+✨ Generated order input type for table 'Athlete'. This input defines the sorting order of rows in query results based on one or more fields.
+"""
+input Athlete_Order {
+  """
+  ✨ Generated from Field `Athlete`.`id` of type `UUID!`
+  """
+  id: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`height` of type `Float`
+  """
+  height: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`name` of type `String!`
+  """
+  name: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`sex` of type `String`
+  """
+  sex: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`weight` of type `Float`
+  """
+  weight: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`_count` of type `Int!`
+  """
+  _count: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`height_count` of type `Int!`
+  """
+  height_count: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`id_count` of type `Int!`
+  """
+  id_count: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`name_count` of type `Int!`
+  """
+  name_count: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`sex_count` of type `Int!`
+  """
+  sex_count: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`weight_count` of type `Int!`
+  """
+  weight_count: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`height_sum` of type `Float`
+  """
+  height_sum: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`weight_sum` of type `Float`
+  """
+  weight_sum: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`height_avg` of type `Float`
+  """
+  height_avg: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`weight_avg` of type `Float`
+  """
+  weight_avg: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`height_min` of type `Float`
+  """
+  height_min: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`weight_min` of type `Float`
+  """
+  weight_min: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`height_max` of type `Float`
+  """
+  height_max: OrderDirection
+  """
+  ✨ Generated from Field `Athlete`.`weight_max` of type `Float`
+  """
+  weight_max: OrderDirection
+}
+"""
+✨ Generated data input type for table 'Event'. It includes all necessary fields for creating or upserting rows into table.
+"""
+input Event_Data {
+  """
+  ✨ Generated from Field `Event`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Event`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Event`.`sportId` of type `UUID!`
+  """
+  sportId: UUID
+  """
+  ✨ `_expr` server value variant of `sportId` (✨ Generated from Field `Event`.`sportId` of type `UUID!`)
+  """
+  sportId_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Event`.`sport` of type `Sport!`
+  """
+  sport: Sport_Key @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Event`.`name` of type `String!`
+  """
+  name: String
+  """
+  ✨ `_expr` server value variant of `name` (✨ Generated from Field `Event`.`name` of type `String!`)
+  """
+  name_expr: String_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated filter input type for table 'Event'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Event_Filter {
+  """
+  Apply multiple filter conditions using `AND` logic.
+  """
+  _and: [Event_Filter!]
+  """
+  Negate the result of the provided filter condition.
+  """
+  _not: Event_Filter
+  """
+  Apply multiple filter conditions using `OR` logic.
+  """
+  _or: [Event_Filter!]
+  """
+  ✨ Generated from Field `Event`.`id` of type `UUID!`
+  """
+  id: UUID_Filter
+  """
+  ✨ Generated from Field `Event`.`sportId` of type `UUID!`
+  """
+  sportId: UUID_Filter
+  """
+  ✨ Generated from Field `Event`.`sport` of type `Sport!`
+  """
+  sport: Sport_Filter
+  """
+  ✨ Generated from Field `Event`.`name` of type `String!`
+  """
+  name: String_Filter
+  """
+  ✨ Generated from Field `Event`.`results_on_event` of type `[Result!]!`
+  """
+  results_on_event: Result_ListFilter
+}
+"""
+✨ Generated first-row input type for table 'Event'. This input selects the first row matching the filter criteria, ordered according to the specified conditions.
+"""
+input Event_FirstRow {
+  """
+  Order the result by the specified fields.
+  """
+  orderBy: [Event_Order!]
+  """
+  Filters rows based on the specified conditions.
+  """
+  where: Event_Filter
+}
+"""
+✨ Generated having input type for table 'Event'. This input allows you to filter groups during aggregate queries using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Event_Having {
+  """
+  Apply multiple Having conditions using `AND` logic.
+  """
+  _and: [Event_Having!]
+  """
+  Whether to apply DISTINCT to the aggregate function.
+  """
+  _distinct: Boolean
+  """
+  Negate the result of the provided Having condition.
+  """
+  _not: Event_Having
+  """
+  Apply multiple Having conditions using `OR` logic.
+  """
+  _or: [Event_Having!]
+  """
+  ✨ Generated from Field `Event`.`_count` of type `Int!`
+  """
+  _count: Int_Filter
+  """
+  ✨ Generated from Field `Event`.`id_count` of type `Int!`
+  """
+  id_count: Int_Filter
+  """
+  ✨ Generated from Field `Event`.`name_count` of type `Int!`
+  """
+  name_count: Int_Filter
+  """
+  ✨ Generated from Field `Event`.`sportId_count` of type `Int!`
+  """
+  sportId_count: Int_Filter
+}
+"""
+✨ Generated key input type for table 'Event'. It represents the primary key fields used to uniquely identify a row in the table.
+"""
+input Event_Key {
+  """
+  ✨ Generated from Field `Event`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Event`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated list filter input type for table 'Event'. This input applies filtering logic based on the count or existence of related objects that matches certain criteria.
+"""
+input Event_ListFilter {
+  """
+  The desired number of objects that match the condition (defaults to at least one).
+  """
+  count: Int_Filter = {gt:0}
+  """
+  Condition of the related objects to filter for.
+  """
+  exist: Event_Filter
+}
+"""
+✨ Generated order input type for table 'Event'. This input defines the sorting order of rows in query results based on one or more fields.
+"""
+input Event_Order {
+  """
+  ✨ Generated from Field `Event`.`id` of type `UUID!`
+  """
+  id: OrderDirection
+  """
+  ✨ Generated from Field `Event`.`sportId` of type `UUID!`
+  """
+  sportId: OrderDirection
+  """
+  ✨ Generated from Field `Event`.`sport` of type `Sport!`
+  """
+  sport: Sport_Order
+  """
+  ✨ Generated from Field `Event`.`name` of type `String!`
+  """
+  name: OrderDirection
+  """
+  ✨ Generated from Field `Event`.`_count` of type `Int!`
+  """
+  _count: OrderDirection
+  """
+  ✨ Generated from Field `Event`.`id_count` of type `Int!`
+  """
+  id_count: OrderDirection
+  """
+  ✨ Generated from Field `Event`.`name_count` of type `Int!`
+  """
+  name_count: OrderDirection
+  """
+  ✨ Generated from Field `Event`.`sportId_count` of type `Int!`
+  """
+  sportId_count: OrderDirection
+}
+"""
+✨ Generated data input type for table 'Games'. It includes all necessary fields for creating or upserting rows into table.
+"""
+input Games_Data {
+  """
+  ✨ Generated from Field `Games`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Games`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Games`.`city` of type `String!`
+  """
+  city: String
+  """
+  ✨ `_expr` server value variant of `city` (✨ Generated from Field `Games`.`city` of type `String!`)
+  """
+  city_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Games`.`season` of type `String!`
+  """
+  season: String
+  """
+  ✨ `_expr` server value variant of `season` (✨ Generated from Field `Games`.`season` of type `String!`)
+  """
+  season_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Games`.`year` of type `Int!`
+  """
+  year: Int
+  """
+  ✨ `_expr` server value variant of `year` (✨ Generated from Field `Games`.`year` of type `Int!`)
+  """
+  year_expr: Int_Expr @fdc_forbiddenInVariables
+  """
+  ✨ `_update` server value variant of `year` (✨ Generated from Field `Games`.`year` of type `Int!`)
+  """
+  year_update: [Int_Update!] @fdc_forbiddenInVariables
+}
+"""
+✨ Generated filter input type for table 'Games'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Games_Filter {
+  """
+  Apply multiple filter conditions using `AND` logic.
+  """
+  _and: [Games_Filter!]
+  """
+  Negate the result of the provided filter condition.
+  """
+  _not: Games_Filter
+  """
+  Apply multiple filter conditions using `OR` logic.
+  """
+  _or: [Games_Filter!]
+  """
+  ✨ Generated from Field `Games`.`id` of type `UUID!`
+  """
+  id: UUID_Filter
+  """
+  ✨ Generated from Field `Games`.`city` of type `String!`
+  """
+  city: String_Filter
+  """
+  ✨ Generated from Field `Games`.`season` of type `String!`
+  """
+  season: String_Filter
+  """
+  ✨ Generated from Field `Games`.`year` of type `Int!`
+  """
+  year: Int_Filter
+  """
+  ✨ Generated from Field `Games`.`results_on_games` of type `[Result!]!`
+  """
+  results_on_games: Result_ListFilter
+}
+"""
+✨ Generated first-row input type for table 'Games'. This input selects the first row matching the filter criteria, ordered according to the specified conditions.
+"""
+input Games_FirstRow {
+  """
+  Order the result by the specified fields.
+  """
+  orderBy: [Games_Order!]
+  """
+  Filters rows based on the specified conditions.
+  """
+  where: Games_Filter
+}
+"""
+✨ Generated having input type for table 'Games'. This input allows you to filter groups during aggregate queries using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Games_Having {
+  """
+  Apply multiple Having conditions using `AND` logic.
+  """
+  _and: [Games_Having!]
+  """
+  Whether to apply DISTINCT to the aggregate function.
+  """
+  _distinct: Boolean
+  """
+  Negate the result of the provided Having condition.
+  """
+  _not: Games_Having
+  """
+  Apply multiple Having conditions using `OR` logic.
+  """
+  _or: [Games_Having!]
+  """
+  ✨ Generated from Field `Games`.`_count` of type `Int!`
+  """
+  _count: Int_Filter
+  """
+  ✨ Generated from Field `Games`.`city_count` of type `Int!`
+  """
+  city_count: Int_Filter
+  """
+  ✨ Generated from Field `Games`.`id_count` of type `Int!`
+  """
+  id_count: Int_Filter
+  """
+  ✨ Generated from Field `Games`.`season_count` of type `Int!`
+  """
+  season_count: Int_Filter
+  """
+  ✨ Generated from Field `Games`.`year_count` of type `Int!`
+  """
+  year_count: Int_Filter
+  """
+  ✨ Generated from Field `Games`.`year_sum` of type `Int`
+  """
+  year_sum: Int_Filter
+  """
+  ✨ Generated from Field `Games`.`year_avg` of type `Float`
+  """
+  year_avg: Float_Filter
+  """
+  ✨ Generated from Field `Games`.`year_min` of type `Int`
+  """
+  year_min: Int_Filter
+  """
+  ✨ Generated from Field `Games`.`year_max` of type `Int`
+  """
+  year_max: Int_Filter
+}
+"""
+✨ Generated key input type for table 'Games'. It represents the primary key fields used to uniquely identify a row in the table.
+"""
+input Games_Key {
+  """
+  ✨ Generated from Field `Games`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Games`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated list filter input type for table 'Games'. This input applies filtering logic based on the count or existence of related objects that matches certain criteria.
+"""
+input Games_ListFilter {
+  """
+  The desired number of objects that match the condition (defaults to at least one).
+  """
+  count: Int_Filter = {gt:0}
+  """
+  Condition of the related objects to filter for.
+  """
+  exist: Games_Filter
+}
+"""
+✨ Generated order input type for table 'Games'. This input defines the sorting order of rows in query results based on one or more fields.
+"""
+input Games_Order {
+  """
+  ✨ Generated from Field `Games`.`id` of type `UUID!`
+  """
+  id: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`city` of type `String!`
+  """
+  city: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`season` of type `String!`
+  """
+  season: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`year` of type `Int!`
+  """
+  year: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`_count` of type `Int!`
+  """
+  _count: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`city_count` of type `Int!`
+  """
+  city_count: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`id_count` of type `Int!`
+  """
+  id_count: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`season_count` of type `Int!`
+  """
+  season_count: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`year_count` of type `Int!`
+  """
+  year_count: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`year_sum` of type `Int`
+  """
+  year_sum: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`year_avg` of type `Float`
+  """
+  year_avg: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`year_min` of type `Int`
+  """
+  year_min: OrderDirection
+  """
+  ✨ Generated from Field `Games`.`year_max` of type `Int`
+  """
+  year_max: OrderDirection
+}
+"""
+✨ Generated data input type for table 'NocRegion'. It includes all necessary fields for creating or upserting rows into table.
+"""
+input NocRegion_Data {
+  """
+  ✨ Generated from Field `NocRegion`.`noc` of type `String!`
+  """
+  noc: String
+  """
+  ✨ `_expr` server value variant of `noc` (✨ Generated from Field `NocRegion`.`noc` of type `String!`)
+  """
+  noc_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `NocRegion`.`notes` of type `String`
+  """
+  notes: String
+  """
+  ✨ `_expr` server value variant of `notes` (✨ Generated from Field `NocRegion`.`notes` of type `String`)
+  """
+  notes_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `NocRegion`.`region` of type `String`
+  """
+  region: String
+  """
+  ✨ `_expr` server value variant of `region` (✨ Generated from Field `NocRegion`.`region` of type `String`)
+  """
+  region_expr: String_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated filter input type for table 'NocRegion'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input NocRegion_Filter {
+  """
+  Apply multiple filter conditions using `AND` logic.
+  """
+  _and: [NocRegion_Filter!]
+  """
+  Negate the result of the provided filter condition.
+  """
+  _not: NocRegion_Filter
+  """
+  Apply multiple filter conditions using `OR` logic.
+  """
+  _or: [NocRegion_Filter!]
+  """
+  ✨ Generated from Field `NocRegion`.`noc` of type `String!`
+  """
+  noc: String_Filter
+  """
+  ✨ Generated from Field `NocRegion`.`notes` of type `String`
+  """
+  notes: String_Filter
+  """
+  ✨ Generated from Field `NocRegion`.`region` of type `String`
+  """
+  region: String_Filter
+  """
+  ✨ Generated from Field `NocRegion`.`results_on_noc` of type `[Result!]!`
+  """
+  results_on_noc: Result_ListFilter
+}
+"""
+✨ Generated first-row input type for table 'NocRegion'. This input selects the first row matching the filter criteria, ordered according to the specified conditions.
+"""
+input NocRegion_FirstRow {
+  """
+  Order the result by the specified fields.
+  """
+  orderBy: [NocRegion_Order!]
+  """
+  Filters rows based on the specified conditions.
+  """
+  where: NocRegion_Filter
+}
+"""
+✨ Generated having input type for table 'NocRegion'. This input allows you to filter groups during aggregate queries using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input NocRegion_Having {
+  """
+  Apply multiple Having conditions using `AND` logic.
+  """
+  _and: [NocRegion_Having!]
+  """
+  Whether to apply DISTINCT to the aggregate function.
+  """
+  _distinct: Boolean
+  """
+  Negate the result of the provided Having condition.
+  """
+  _not: NocRegion_Having
+  """
+  Apply multiple Having conditions using `OR` logic.
+  """
+  _or: [NocRegion_Having!]
+  """
+  ✨ Generated from Field `NocRegion`.`_count` of type `Int!`
+  """
+  _count: Int_Filter
+  """
+  ✨ Generated from Field `NocRegion`.`noc_count` of type `Int!`
+  """
+  noc_count: Int_Filter
+  """
+  ✨ Generated from Field `NocRegion`.`notes_count` of type `Int!`
+  """
+  notes_count: Int_Filter
+  """
+  ✨ Generated from Field `NocRegion`.`region_count` of type `Int!`
+  """
+  region_count: Int_Filter
+}
+"""
+✨ Generated key input type for table 'NocRegion'. It represents the primary key fields used to uniquely identify a row in the table.
+"""
+input NocRegion_Key {
+  """
+  ✨ Generated from Field `NocRegion`.`noc` of type `String!`
+  """
+  noc: String
+  """
+  ✨ `_expr` server value variant of `noc` (✨ Generated from Field `NocRegion`.`noc` of type `String!`)
+  """
+  noc_expr: String_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated list filter input type for table 'NocRegion'. This input applies filtering logic based on the count or existence of related objects that matches certain criteria.
+"""
+input NocRegion_ListFilter {
+  """
+  The desired number of objects that match the condition (defaults to at least one).
+  """
+  count: Int_Filter = {gt:0}
+  """
+  Condition of the related objects to filter for.
+  """
+  exist: NocRegion_Filter
+}
+"""
+✨ Generated order input type for table 'NocRegion'. This input defines the sorting order of rows in query results based on one or more fields.
+"""
+input NocRegion_Order {
+  """
+  ✨ Generated from Field `NocRegion`.`noc` of type `String!`
+  """
+  noc: OrderDirection
+  """
+  ✨ Generated from Field `NocRegion`.`notes` of type `String`
+  """
+  notes: OrderDirection
+  """
+  ✨ Generated from Field `NocRegion`.`region` of type `String`
+  """
+  region: OrderDirection
+  """
+  ✨ Generated from Field `NocRegion`.`_count` of type `Int!`
+  """
+  _count: OrderDirection
+  """
+  ✨ Generated from Field `NocRegion`.`noc_count` of type `Int!`
+  """
+  noc_count: OrderDirection
+  """
+  ✨ Generated from Field `NocRegion`.`notes_count` of type `Int!`
+  """
+  notes_count: OrderDirection
+  """
+  ✨ Generated from Field `NocRegion`.`region_count` of type `Int!`
+  """
+  region_count: OrderDirection
+}
+"""
+✨ Generated data input type for table 'Result'. It includes all necessary fields for creating or upserting rows into table.
+"""
+input Result_Data {
+  """
+  ✨ Generated from Field `Result`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Result`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`athleteId` of type `UUID!`
+  """
+  athleteId: UUID
+  """
+  ✨ `_expr` server value variant of `athleteId` (✨ Generated from Field `Result`.`athleteId` of type `UUID!`)
+  """
+  athleteId_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`eventId` of type `UUID!`
+  """
+  eventId: UUID
+  """
+  ✨ `_expr` server value variant of `eventId` (✨ Generated from Field `Result`.`eventId` of type `UUID!`)
+  """
+  eventId_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`gamesId` of type `UUID!`
+  """
+  gamesId: UUID
+  """
+  ✨ `_expr` server value variant of `gamesId` (✨ Generated from Field `Result`.`gamesId` of type `UUID!`)
+  """
+  gamesId_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`nocNoc` of type `String!`
+  """
+  nocNoc: String
+  """
+  ✨ `_expr` server value variant of `nocNoc` (✨ Generated from Field `Result`.`nocNoc` of type `String!`)
+  """
+  nocNoc_expr: String_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`athlete` of type `Athlete!`
+  """
+  athlete: Athlete_Key @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`event` of type `Event!`
+  """
+  event: Event_Key @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`games` of type `Games!`
+  """
+  games: Games_Key @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`noc` of type `NocRegion!`
+  """
+  noc: NocRegion_Key @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`age` of type `Int`
+  """
+  age: Int
+  """
+  ✨ `_expr` server value variant of `age` (✨ Generated from Field `Result`.`age` of type `Int`)
+  """
+  age_expr: Int_Expr @fdc_forbiddenInVariables
+  """
+  ✨ `_update` server value variant of `age` (✨ Generated from Field `Result`.`age` of type `Int`)
+  """
+  age_update: [Int_Update!] @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Result`.`medal` of type `String`
+  """
+  medal: String
+  """
+  ✨ `_expr` server value variant of `medal` (✨ Generated from Field `Result`.`medal` of type `String`)
+  """
+  medal_expr: String_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated filter input type for table 'Result'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Result_Filter {
+  """
+  Apply multiple filter conditions using `AND` logic.
+  """
+  _and: [Result_Filter!]
+  """
+  Negate the result of the provided filter condition.
+  """
+  _not: Result_Filter
+  """
+  Apply multiple filter conditions using `OR` logic.
+  """
+  _or: [Result_Filter!]
+  """
+  ✨ Generated from Field `Result`.`id` of type `UUID!`
+  """
+  id: UUID_Filter
+  """
+  ✨ Generated from Field `Result`.`athleteId` of type `UUID!`
+  """
+  athleteId: UUID_Filter
+  """
+  ✨ Generated from Field `Result`.`eventId` of type `UUID!`
+  """
+  eventId: UUID_Filter
+  """
+  ✨ Generated from Field `Result`.`gamesId` of type `UUID!`
+  """
+  gamesId: UUID_Filter
+  """
+  ✨ Generated from Field `Result`.`nocNoc` of type `String!`
+  """
+  nocNoc: String_Filter
+  """
+  ✨ Generated from Field `Result`.`athlete` of type `Athlete!`
+  """
+  athlete: Athlete_Filter
+  """
+  ✨ Generated from Field `Result`.`event` of type `Event!`
+  """
+  event: Event_Filter
+  """
+  ✨ Generated from Field `Result`.`games` of type `Games!`
+  """
+  games: Games_Filter
+  """
+  ✨ Generated from Field `Result`.`noc` of type `NocRegion!`
+  """
+  noc: NocRegion_Filter
+  """
+  ✨ Generated from Field `Result`.`age` of type `Int`
+  """
+  age: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`medal` of type `String`
+  """
+  medal: String_Filter
+}
+"""
+✨ Generated first-row input type for table 'Result'. This input selects the first row matching the filter criteria, ordered according to the specified conditions.
+"""
+input Result_FirstRow {
+  """
+  Order the result by the specified fields.
+  """
+  orderBy: [Result_Order!]
+  """
+  Filters rows based on the specified conditions.
+  """
+  where: Result_Filter
+}
+"""
+✨ Generated having input type for table 'Result'. This input allows you to filter groups during aggregate queries using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Result_Having {
+  """
+  Apply multiple Having conditions using `AND` logic.
+  """
+  _and: [Result_Having!]
+  """
+  Whether to apply DISTINCT to the aggregate function.
+  """
+  _distinct: Boolean
+  """
+  Negate the result of the provided Having condition.
+  """
+  _not: Result_Having
+  """
+  Apply multiple Having conditions using `OR` logic.
+  """
+  _or: [Result_Having!]
+  """
+  ✨ Generated from Field `Result`.`_count` of type `Int!`
+  """
+  _count: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`age_count` of type `Int!`
+  """
+  age_count: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`athleteId_count` of type `Int!`
+  """
+  athleteId_count: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`eventId_count` of type `Int!`
+  """
+  eventId_count: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`gamesId_count` of type `Int!`
+  """
+  gamesId_count: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`id_count` of type `Int!`
+  """
+  id_count: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`medal_count` of type `Int!`
+  """
+  medal_count: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`nocNoc_count` of type `Int!`
+  """
+  nocNoc_count: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`age_sum` of type `Int`
+  """
+  age_sum: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`age_avg` of type `Float`
+  """
+  age_avg: Float_Filter
+  """
+  ✨ Generated from Field `Result`.`age_min` of type `Int`
+  """
+  age_min: Int_Filter
+  """
+  ✨ Generated from Field `Result`.`age_max` of type `Int`
+  """
+  age_max: Int_Filter
+}
+"""
+✨ Generated key input type for table 'Result'. It represents the primary key fields used to uniquely identify a row in the table.
+"""
+input Result_Key {
+  """
+  ✨ Generated from Field `Result`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Result`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated list filter input type for table 'Result'. This input applies filtering logic based on the count or existence of related objects that matches certain criteria.
+"""
+input Result_ListFilter {
+  """
+  The desired number of objects that match the condition (defaults to at least one).
+  """
+  count: Int_Filter = {gt:0}
+  """
+  Condition of the related objects to filter for.
+  """
+  exist: Result_Filter
+}
+"""
+✨ Generated order input type for table 'Result'. This input defines the sorting order of rows in query results based on one or more fields.
+"""
+input Result_Order {
+  """
+  ✨ Generated from Field `Result`.`id` of type `UUID!`
+  """
+  id: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`athleteId` of type `UUID!`
+  """
+  athleteId: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`eventId` of type `UUID!`
+  """
+  eventId: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`gamesId` of type `UUID!`
+  """
+  gamesId: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`nocNoc` of type `String!`
+  """
+  nocNoc: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`athlete` of type `Athlete!`
+  """
+  athlete: Athlete_Order
+  """
+  ✨ Generated from Field `Result`.`event` of type `Event!`
+  """
+  event: Event_Order
+  """
+  ✨ Generated from Field `Result`.`games` of type `Games!`
+  """
+  games: Games_Order
+  """
+  ✨ Generated from Field `Result`.`noc` of type `NocRegion!`
+  """
+  noc: NocRegion_Order
+  """
+  ✨ Generated from Field `Result`.`age` of type `Int`
+  """
+  age: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`medal` of type `String`
+  """
+  medal: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`_count` of type `Int!`
+  """
+  _count: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`age_count` of type `Int!`
+  """
+  age_count: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`athleteId_count` of type `Int!`
+  """
+  athleteId_count: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`eventId_count` of type `Int!`
+  """
+  eventId_count: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`gamesId_count` of type `Int!`
+  """
+  gamesId_count: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`id_count` of type `Int!`
+  """
+  id_count: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`medal_count` of type `Int!`
+  """
+  medal_count: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`nocNoc_count` of type `Int!`
+  """
+  nocNoc_count: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`age_sum` of type `Int`
+  """
+  age_sum: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`age_avg` of type `Float`
+  """
+  age_avg: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`age_min` of type `Int`
+  """
+  age_min: OrderDirection
+  """
+  ✨ Generated from Field `Result`.`age_max` of type `Int`
+  """
+  age_max: OrderDirection
+}
+"""
+✨ Generated data input type for table 'Sport'. It includes all necessary fields for creating or upserting rows into table.
+"""
+input Sport_Data {
+  """
+  ✨ Generated from Field `Sport`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Sport`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+  """
+  ✨ Generated from Field `Sport`.`name` of type `String!`
+  """
+  name: String
+  """
+  ✨ `_expr` server value variant of `name` (✨ Generated from Field `Sport`.`name` of type `String!`)
+  """
+  name_expr: String_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated filter input type for table 'Sport'. This input allows filtering objects using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Sport_Filter {
+  """
+  Apply multiple filter conditions using `AND` logic.
+  """
+  _and: [Sport_Filter!]
+  """
+  Negate the result of the provided filter condition.
+  """
+  _not: Sport_Filter
+  """
+  Apply multiple filter conditions using `OR` logic.
+  """
+  _or: [Sport_Filter!]
+  """
+  ✨ Generated from Field `Sport`.`id` of type `UUID!`
+  """
+  id: UUID_Filter
+  """
+  ✨ Generated from Field `Sport`.`name` of type `String!`
+  """
+  name: String_Filter
+  """
+  ✨ Generated from Field `Sport`.`events_on_sport` of type `[Event!]!`
+  """
+  events_on_sport: Event_ListFilter
+}
+"""
+✨ Generated first-row input type for table 'Sport'. This input selects the first row matching the filter criteria, ordered according to the specified conditions.
+"""
+input Sport_FirstRow {
+  """
+  Order the result by the specified fields.
+  """
+  orderBy: [Sport_Order!]
+  """
+  Filters rows based on the specified conditions.
+  """
+  where: Sport_Filter
+}
+"""
+✨ Generated having input type for table 'Sport'. This input allows you to filter groups during aggregate queries using various conditions. Use `_or`, `_and`, and `_not` to compose complex filters.
+"""
+input Sport_Having {
+  """
+  Apply multiple Having conditions using `AND` logic.
+  """
+  _and: [Sport_Having!]
+  """
+  Whether to apply DISTINCT to the aggregate function.
+  """
+  _distinct: Boolean
+  """
+  Negate the result of the provided Having condition.
+  """
+  _not: Sport_Having
+  """
+  Apply multiple Having conditions using `OR` logic.
+  """
+  _or: [Sport_Having!]
+  """
+  ✨ Generated from Field `Sport`.`_count` of type `Int!`
+  """
+  _count: Int_Filter
+  """
+  ✨ Generated from Field `Sport`.`id_count` of type `Int!`
+  """
+  id_count: Int_Filter
+  """
+  ✨ Generated from Field `Sport`.`name_count` of type `Int!`
+  """
+  name_count: Int_Filter
+}
+"""
+✨ Generated key input type for table 'Sport'. It represents the primary key fields used to uniquely identify a row in the table.
+"""
+input Sport_Key {
+  """
+  ✨ Generated from Field `Sport`.`id` of type `UUID!`
+  """
+  id: UUID
+  """
+  ✨ `_expr` server value variant of `id` (✨ Generated from Field `Sport`.`id` of type `UUID!`)
+  """
+  id_expr: UUID_Expr @fdc_forbiddenInVariables
+}
+"""
+✨ Generated list filter input type for table 'Sport'. This input applies filtering logic based on the count or existence of related objects that matches certain criteria.
+"""
+input Sport_ListFilter {
+  """
+  The desired number of objects that match the condition (defaults to at least one).
+  """
+  count: Int_Filter = {gt:0}
+  """
+  Condition of the related objects to filter for.
+  """
+  exist: Sport_Filter
+}
+"""
+✨ Generated order input type for table 'Sport'. This input defines the sorting order of rows in query results based on one or more fields.
+"""
+input Sport_Order {
+  """
+  ✨ Generated from Field `Sport`.`id` of type `UUID!`
+  """
+  id: OrderDirection
+  """
+  ✨ Generated from Field `Sport`.`name` of type `String!`
+  """
+  name: OrderDirection
+  """
+  ✨ Generated from Field `Sport`.`_count` of type `Int!`
+  """
+  _count: OrderDirection
+  """
+  ✨ Generated from Field `Sport`.`id_count` of type `Int!`
+  """
+  id_count: OrderDirection
+  """
+  ✨ Generated from Field `Sport`.`name_count` of type `Int!`
+  """
+  name_count: OrderDirection
+}

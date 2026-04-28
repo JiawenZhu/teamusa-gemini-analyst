@@ -1,0 +1,664 @@
+extend type Mutation {
+  """
+  ✨ Insert a single `Athlete` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  athlete_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Athlete_Data!
+  ): Athlete_KeyOutput! @fdc_generated(from: "Athlete", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Event` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  event_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Event_Data!
+  ): Event_KeyOutput! @fdc_generated(from: "Event", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Games` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  games_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Games_Data!
+  ): Games_KeyOutput! @fdc_generated(from: "Games", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `NocRegion` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  nocRegion_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: NocRegion_Data!
+  ): NocRegion_KeyOutput! @fdc_generated(from: "NocRegion", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Result` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  result_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Result_Data!
+  ): Result_KeyOutput! @fdc_generated(from: "Result", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert a single `Sport` into the table and return its key. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  sport_insert(
+    """
+    Data object to insert into the table.
+    """
+    data: Sport_Data!
+  ): Sport_KeyOutput! @fdc_generated(from: "Sport", purpose: INSERT_SINGLE)
+  """
+  ✨ Insert `Athlete` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  athlete_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Athlete_Data!]!
+  ): [Athlete_KeyOutput!]! @fdc_generated(from: "Athlete", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Event` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  event_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Event_Data!]!
+  ): [Event_KeyOutput!]! @fdc_generated(from: "Event", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Games` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  games_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Games_Data!]!
+  ): [Games_KeyOutput!]! @fdc_generated(from: "Games", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `NocRegion` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  nocRegion_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [NocRegion_Data!]!
+  ): [NocRegion_KeyOutput!]! @fdc_generated(from: "NocRegion", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Result` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  result_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Result_Data!]!
+  ): [Result_KeyOutput!]! @fdc_generated(from: "Result", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert `Sport` objects into the table and return their keys. Columns not specified in `data` will receive defaults (e.g. `null`).
+  """
+  sport_insertMany(
+    """
+    List of data objects to insert into the table.
+    """
+    data: [Sport_Data!]!
+  ): [Sport_KeyOutput!]! @fdc_generated(from: "Sport", purpose: INSERT_MULTIPLE)
+  """
+  ✨ Insert or update a single `Athlete` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Athlete`.
+  """
+  athlete_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Athlete_Data!
+  ): Athlete_KeyOutput! @fdc_generated(from: "Athlete", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Event` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Event`.
+  """
+  event_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Event_Data!
+  ): Event_KeyOutput! @fdc_generated(from: "Event", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Games` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Games`.
+  """
+  games_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Games_Data!
+  ): Games_KeyOutput! @fdc_generated(from: "Games", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `NocRegion` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `NocRegion`.
+  """
+  nocRegion_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: NocRegion_Data!
+  ): NocRegion_KeyOutput! @fdc_generated(from: "NocRegion", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Result` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Result`.
+  """
+  result_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Result_Data!
+  ): Result_KeyOutput! @fdc_generated(from: "Result", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update a single `Sport` into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Sport`.
+  """
+  sport_upsert(
+    """
+    Data object to insert or update if it already exists.
+    """
+    data: Sport_Data!
+  ): Sport_KeyOutput! @fdc_generated(from: "Sport", purpose: UPSERT_SINGLE)
+  """
+  ✨ Insert or update `Athlete` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Athlete`.
+  """
+  athlete_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Athlete_Data!]!
+  ): [Athlete_KeyOutput!]! @fdc_generated(from: "Athlete", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Event` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Event`.
+  """
+  event_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Event_Data!]!
+  ): [Event_KeyOutput!]! @fdc_generated(from: "Event", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Games` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Games`.
+  """
+  games_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Games_Data!]!
+  ): [Games_KeyOutput!]! @fdc_generated(from: "Games", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `NocRegion` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `NocRegion`.
+  """
+  nocRegion_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [NocRegion_Data!]!
+  ): [NocRegion_KeyOutput!]! @fdc_generated(from: "NocRegion", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Result` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Result`.
+  """
+  result_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Result_Data!]!
+  ): [Result_KeyOutput!]! @fdc_generated(from: "Result", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Insert or update `Sport` objects into the table, based on the primary key. Returns the key of the newly inserted or existing updated `Sport`.
+  """
+  sport_upsertMany(
+    """
+    List of data objects to insert or update if it already exists.
+    """
+    data: [Sport_Data!]!
+  ): [Sport_KeyOutput!]! @fdc_generated(from: "Sport", purpose: UPSERT_MULTIPLE)
+  """
+  ✨ Update a single `Athlete` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Athlete` or `null` if not found.
+  """
+  athlete_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Athlete_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Athlete_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Athlete_Data!
+  ): Athlete_KeyOutput @fdc_generated(from: "Athlete", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Event` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Event` or `null` if not found.
+  """
+  event_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Event_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Event_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Event_Data!
+  ): Event_KeyOutput @fdc_generated(from: "Event", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Games` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Games` or `null` if not found.
+  """
+  games_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Games_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Games_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Games_Data!
+  ): Games_KeyOutput @fdc_generated(from: "Games", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `NocRegion` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `NocRegion` or `null` if not found.
+  """
+  nocRegion_update(
+    """
+    The key used to identify the object.
+    """
+    key: NocRegion_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: NocRegion_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: NocRegion_Data!
+  ): NocRegion_KeyOutput @fdc_generated(from: "NocRegion", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Result` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Result` or `null` if not found.
+  """
+  result_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Result_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Result_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Result_Data!
+  ): Result_KeyOutput @fdc_generated(from: "Result", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update a single `Sport` based on `id`, `key` or `first`, setting columns specified in `data`. Returns the key of the updated `Sport` or `null` if not found.
+  """
+  sport_update(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Sport_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Sport_FirstRow
+
+    """
+    Data object containing fields to be updated.
+    """
+    data: Sport_Data!
+  ): Sport_KeyOutput @fdc_generated(from: "Sport", purpose: UPDATE_SINGLE)
+  """
+  ✨ Update `Athlete` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  athlete_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Athlete_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Athlete_Data!
+  ): Int! @fdc_generated(from: "Athlete", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Event` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  event_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Event_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Event_Data!
+  ): Int! @fdc_generated(from: "Event", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Games` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  games_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Games_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Games_Data!
+  ): Int! @fdc_generated(from: "Games", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `NocRegion` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  nocRegion_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: NocRegion_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: NocRegion_Data!
+  ): Int! @fdc_generated(from: "NocRegion", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Result` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  result_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Result_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Result_Data!
+  ): Int! @fdc_generated(from: "Result", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Update `Sport` objects matching `where` conditions (or `all`, if true) according to `data`. Returns the number of rows updated.
+  """
+  sport_updateMany(
+    """
+    Filter condition to specify which rows to update.
+    """
+    where: Sport_Filter
+
+    """
+    Set to true to update all rows.
+    """
+    all: Boolean = false
+
+    """
+    Data object containing fields to update.
+    """
+    data: Sport_Data!
+  ): Int! @fdc_generated(from: "Sport", purpose: UPDATE_MULTIPLE)
+  """
+  ✨ Delete a single `Athlete` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  athlete_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Athlete_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Athlete_FirstRow
+  ): Athlete_KeyOutput @fdc_generated(from: "Athlete", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Event` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  event_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Event_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Event_FirstRow
+  ): Event_KeyOutput @fdc_generated(from: "Event", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Games` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  games_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Games_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Games_FirstRow
+  ): Games_KeyOutput @fdc_generated(from: "Games", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `NocRegion` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  nocRegion_delete(
+    """
+    The key used to identify the object.
+    """
+    key: NocRegion_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: NocRegion_FirstRow
+  ): NocRegion_KeyOutput @fdc_generated(from: "NocRegion", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Result` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  result_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Result_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Result_FirstRow
+  ): Result_KeyOutput @fdc_generated(from: "Result", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete a single `Sport` based on `id`, `key` or `first` and return its key (or `null` if not found).
+  """
+  sport_delete(
+    """
+    The unique ID of the object.
+    """
+    id: UUID
+
+    """
+    The key used to identify the object.
+    """
+    key: Sport_Key
+
+    """
+    Fetch the first row based on the filters and ordering.
+    """
+    first: Sport_FirstRow
+  ): Sport_KeyOutput @fdc_generated(from: "Sport", purpose: DELETE_SINGLE)
+  """
+  ✨ Delete `Athlete` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  athlete_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Athlete_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Athlete", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Event` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  event_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Event_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Event", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Games` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  games_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Games_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Games", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `NocRegion` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  nocRegion_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: NocRegion_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "NocRegion", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Result` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  result_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Result_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Result", purpose: DELETE_MULTIPLE)
+  """
+  ✨ Delete `Sport` objects matching `where` conditions (or `all`, if true). Returns the number of rows deleted.
+  """
+  sport_deleteMany(
+    """
+    Filter condition to specify which rows to delete.
+    """
+    where: Sport_Filter
+
+    """
+    Set to true to delete all rows.
+    """
+    all: Boolean = false
+  ): Int! @fdc_generated(from: "Sport", purpose: DELETE_MULTIPLE)
+}

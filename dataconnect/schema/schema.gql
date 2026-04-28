@@ -1,0 +1,46 @@
+# ── Olympic History Schema for Firebase SQL Connect ────────────────────────────
+# Mirrors the normalized PostgreSQL schema seeded with 271,116 rows from
+# athlete_events.csv (1896–2016 Olympic history).
+# Note: Firebase SQL Connect uses UUID primary keys by default via uuidV4().
+
+type Sport @table(name: "sports", key: ["id"]) {
+  id:   UUID! @default(expr: "uuidV4()")
+  name: String!
+}
+
+type Athlete @table(name: "athletes", key: ["id"]) {
+  id:     UUID!  @default(expr: "uuidV4()")
+  name:   String!
+  sex:    String    # "M" | "F"
+  height: Float     # cm
+  weight: Float     # kg
+}
+
+type NocRegion @table(name: "noc_regions", key: ["noc"]) {
+  noc:    String!
+  region: String
+  notes:  String
+}
+
+type Games @table(name: "games", key: ["id"]) {
+  id:     UUID!  @default(expr: "uuidV4()")
+  year:   Int!
+  season: String!   # "Summer" | "Winter"
+  city:   String!
+}
+
+type Event @table(name: "events", key: ["id"]) {
+  id:    UUID!  @default(expr: "uuidV4()")
+  sport: Sport!
+  name:  String!
+}
+
+type Result @table(name: "results", key: ["id"]) {
+  id:      UUID!  @default(expr: "uuidV4()")
+  athlete: Athlete!
+  games:   Games!
+  event:   Event!
+  noc:     NocRegion!
+  age:     Int
+  medal:   String    # "Gold" | "Silver" | "Bronze" | null
+}

@@ -1,0 +1,12 @@
+{
+  "name": "teamusa-gemini-analyst",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && .venv/bin/uvicorn main:app --reload --port 8000",
+    "dev:proxy": "cloud-sql-proxy teamusa-8b1ba:us-central1:teamusa --port 5433",
+    "dev": "npx concurrently \"npm run dev:proxy\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "cd frontend && npm run build"
+  }
+}

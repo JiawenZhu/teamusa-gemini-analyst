@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // archetype_results: anyone can read their own session, backend writes via admin SDK
+    match /archetype_results/{sessionId} {
+      allow read: if true;
+      allow write: if false; // Backend only via Admin SDK
+    }
+    
+    // archetype_stats: public read for community panel
+    match /archetype_stats/{doc} {
+      allow read: if true;
+      allow write: if false; // Backend only via Admin SDK
+    }
+  }
+}

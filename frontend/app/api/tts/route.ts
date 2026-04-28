@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API = "http://127.0.0.1:8000";
 
 export async function POST(req: NextRequest) {
   const { text } = await req.json();

@@ -1,6 +1,6 @@
 // lib/api.ts — TeamUSA Digital Mirror API client
 
-export const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+export const API = "http://127.0.0.1:8000";
 
 export interface ArchetypeProfile {
   id: string; label: string; icon: string; color: string;

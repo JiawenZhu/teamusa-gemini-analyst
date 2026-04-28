@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,8 +28,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         {/* Google Analytics GA4 */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=G-VNRE5VP9V0" />
-        <script
+        <Script strategy="afterInteractive" src="https://www.googletagmanager.com/gtag/js?id=G-VNRE5VP9V0" />
+        <Script
+          id="google-analytics"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];

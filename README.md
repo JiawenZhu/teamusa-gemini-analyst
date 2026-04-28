@@ -35,10 +35,23 @@
 |---|---|
 | **AI** | Gemini 2.5 Flash (`gemini-2.5-flash`) · Gemini Function Calling (10 SQL tools) · `google-genai` SDK |
 | **Backend** | Python 3.13 · FastAPI · scikit-learn (K-means) · psycopg2 · slowapi |
-| **Frontend** | Next.js 16 · TypeScript · Tailwind CSS · Web Speech API (voice input) · Google TTS (voice output) |
+| **Frontend** | Next.js 16 · TypeScript · Tailwind CSS · Web Speech API (voice input) · Native Browser TTS (voice output) |
 | **Database** | Cloud SQL PostgreSQL · 271,116 rows · 6 normalized tables · `v_results_full` view |
 | **Deployment** | Google Cloud Run (frontend + backend) · Firebase Hosting (CDN proxy) · Artifact Registry |
 | **Analytics** | Google Analytics GA4 (Firebase) |
+
+### Frontend Component Architecture
+
+The React frontend has been deeply modularized for performance and maintainability (~2,500 lines across 30 files):
+- **`app/page.tsx`** (213 lines) - Main orchestrator
+- **`components/ChatPanel.tsx`** (170 lines) - AI Chat Interface
+- **`components/MatchResultPanel.tsx`** (163 lines) - Result display component
+- **`hooks/useVoiceAssistant.ts`** (163 lines) - Custom hook for native voice and speech recognition
+- **`lib/api.ts`** (153 lines) - Frontend API client
+- **`components/FormattedBotMessage.tsx`** (101 lines) - Custom Markdown/Emoji renderer
+- **`components/TimelineChart.tsx`** (84 lines) - SVG historical visualization
+- **`components/ArchetypeExplorer.tsx`** (82 lines) - 6 Olympic Archetypes grid
+- **`components/InputSection.tsx`** (58 lines) - Biometric form
 
 ## Architecture
 
@@ -60,13 +73,13 @@
    │  Next.js 16 Frontend    │  │  FastAPI Backend          │
    │  Cloud Run              │  │  Cloud Run               │
    │                         │  │                          │
-   │  • Biometric form       │  │  GET  /api/stats         │
-   │  • Archetype result     │  │  GET  /api/archetypes    │
-   │  • Chat UI              │◄─┤  POST /api/match         │
-   │  • Voice I/O            │  │  GET  /api/timeline      │
-   │  • GA4 analytics        │  │  POST /api/chat          │
-   │  • /api/og  (OG image)  │  │                          │
-   │  • /api/tts (voice)     │  └──────────────────────────┘
+   │  • app/page.tsx         │  │  GET  /api/stats         │
+   │  • components/Hero      │  │  GET  /api/archetypes    │
+   │  • components/Input     │◄─┤  POST /api/match         │
+   │  • components/ChatPanel │  │  GET  /api/timeline      │
+   │  • hooks/useVoice       │  │  POST /api/chat          │
+   │  • GA4 analytics        │  │                          │
+   │                         │  └──────────────────────────┘
    └─────────────────────────┘           │         │
                                          │         │
                           ┌──────────────┘         └─────────────┐

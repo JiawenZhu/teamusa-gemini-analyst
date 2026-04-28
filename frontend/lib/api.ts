@@ -54,3 +54,66 @@ export async function sendChat(message: string, archetype_id: string, history: {
   }).then(r => r.json());
   return d.response || "";
 }
+
+/**
+ * Streaming version of sendChat — calls /api/chat-stream (SSE).
+ * Invokes onChunk(sentence, index) for each sentence as it arrives,
+ * then onDone(fullText) when the stream completes.
+ * Use this when voice is enabled to start TTS immediately per chunk.
+ */
+export async function sendChatStream(
+  message: string,
+  archetype_id: string,
+  history: { role: string; text: string }[],
+  onChunk: (sentence: string, index: number) => void,
+  onDone: (fullText: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`${API}/api/chat-stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, archetype_id, history }),
+    signal,
+  });
+
+  if (!res.ok || !res.body) {
+    throw new Error(`Stream failed: ${res.status}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  const collected: string[] = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() ?? "";  // keep incomplete last chunk
+
+    for (const line of lines) {
+      const dataLine = line.trim();
+      if (!dataLine.startsWith("data:")) continue;
+      try {
+        const payload = JSON.parse(dataLine.slice(5).trim()) as {
+          chunk: string; index: number; done: boolean;
+        };
+        if (payload.done) {
+          onDone(collected.join(" "));
+          return;
+        }
+        if (payload.chunk) {
+          collected.push(payload.chunk);
+          onChunk(payload.chunk, payload.index);
+        }
+      } catch {
+        // Malformed SSE line — skip
+      }
+    }
+  }
+
+  // Fallback if stream ended without a done event
+  onDone(collected.join(" "));
+}

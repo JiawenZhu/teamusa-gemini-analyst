@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { fetchStats, fetchArchetypes, matchBiometrics, fetchTimeline, sendChat } from "@/lib/api";
+import { fetchStats, fetchArchetypes, matchBiometrics, fetchTimeline, sendChat, sendChatStream } from "@/lib/api";
 import type { DatasetStats, ArchetypeProfile, MatchResult, TimelinePoint } from "@/lib/api";
 import { motion } from "framer-motion";
 import { Sparkles, Medal, ChevronRight, Terminal, Activity, ArrowUp, MoreHorizontal, User, Share2, Download, Check, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
@@ -156,6 +156,9 @@ export default function Page() {
   const [micState, setMicState] = useState<"idle" | "listening" | "processing">("idle");
   const [isSpeaking, setIsSpeaking] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  // Audio queue — ensures sentence chunks play in order even if synthesis overlaps
+  const audioQueueRef = useRef<string[]>([]);   // queue of base64 MP3 chunks
+  const playingRef   = useRef(false);            // true while a chunk is playing
   const recognitionRef = useRef<any>(null);
   const resultRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -195,34 +198,64 @@ export default function Page() {
     }, 100);
   }, [h, w, age, archetypes]);
 
-  // ── TTS playback (Google Cloud → browser fallback) ─────────────────────
-  const playTTS = useCallback(async (text: string) => {
-    if (!voiceEnabled) return;
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
-    window.speechSynthesis?.cancel();
+  // ── Audio queue — plays base64 MP3 chunks sequentially ─────────────────
+  const drainAudioQueue = useCallback(() => {
+    if (playingRef.current || audioQueueRef.current.length === 0) return;
+    const b64 = audioQueueRef.current.shift()!;
+    const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const url   = URL.createObjectURL(new Blob([bytes], { type: "audio/mp3" }));
+    const el    = new Audio(url);
+    audioRef.current   = el;
+    playingRef.current = true;
     setIsSpeaking(true);
+    el.onended = () => {
+      URL.revokeObjectURL(url);
+      playingRef.current = false;
+      if (audioQueueRef.current.length > 0) {
+        drainAudioQueue(); // play next chunk
+      } else {
+        setIsSpeaking(false);
+      }
+    };
+    el.play().catch(() => { playingRef.current = false; setIsSpeaking(false); });
+  }, []);
+
+  // Synthesize one sentence chunk and push to the playback queue
+  const enqueueChunkTTS = useCallback(async (sentence: string) => {
     try {
       const res = await fetch("/api/tts", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: sentence }),
       });
       const { audio } = await res.json();
       if (audio) {
-        const bytes = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
-        const blob = new Blob([bytes], { type: "audio/mp3" });
-        const url = URL.createObjectURL(blob);
-        const audioEl = new Audio(url);
-        audioRef.current = audioEl;
-        audioEl.onended = () => { setIsSpeaking(false); URL.revokeObjectURL(url); };
-        audioEl.play();
+        audioQueueRef.current.push(audio);
+        drainAudioQueue(); // starts immediately if nothing is playing
       } else {
-        const utter = new SpeechSynthesisUtterance(text.replace(/[*#_]/g, ""));
+        // Fallback: browser TTS for this sentence
+        const utter = new SpeechSynthesisUtterance(sentence.replace(/[*#_]/g, ""));
         utter.rate = 0.9; utter.pitch = 0.8;
-        utter.onend = () => setIsSpeaking(false);
         window.speechSynthesis.speak(utter);
       }
     } catch { setIsSpeaking(false); }
-  }, [voiceEnabled]);
+  }, [drainAudioQueue]);
+
+  // Stop all audio immediately and clear the queue
+  const stopAudio = useCallback(() => {
+    audioRef.current?.pause();
+    audioRef.current = null;
+    audioQueueRef.current = [];
+    playingRef.current = false;
+    window.speechSynthesis?.cancel();
+    setIsSpeaking(false);
+  }, []);
+
+  // Single-shot TTS for a full text (used in fallback path when streaming fails)
+  const playTTS = useCallback(async (text: string) => {
+    if (!voiceEnabled) return;
+    stopAudio();
+    await enqueueChunkTTS(text);
+  }, [voiceEnabled, stopAudio, enqueueChunkTTS]);
 
   // ── Mic / Speech-to-Text ──────────────────────────────────────────────
   const startListening = useCallback(() => {
@@ -270,11 +303,61 @@ export default function Page() {
     setMsg(""); setCL(true);
     const currentChat = [...chat];
     setChat(c => [...c, { role: "user", text: m }]);
-    const reply = await sendChat(m, result.archetype_id, currentChat);
-    setChat(c => [...c, { role: "bot", text: reply }]);
-    setCL(false);
-    if (reply) playTTS(reply);
-  }, [msg, result, chat, playTTS]);
+
+    if (voiceEnabled) {
+      // ── STREAMING PATH (voice ON): sentence chunks → TTS queue ──────────
+      stopAudio();                          // clear any previous audio
+      audioQueueRef.current = [];           // reset queue
+      let rendered = "";
+
+      // Add a placeholder bot message so the UI shows text as it streams
+      setChat(c => [...c, { role: "bot", text: "" }]);
+
+      try {
+        await sendChatStream(
+          m,
+          result.archetype_id,
+          currentChat,
+          // onChunk: render each sentence into the placeholder + kick off TTS
+          (sentence, _idx) => {
+            rendered += (rendered ? " " : "") + sentence;
+            setChat(c => {
+              const updated = [...c];
+              updated[updated.length - 1] = { role: "bot", text: rendered };
+              return updated;
+            });
+            // Fire-and-forget TTS synthesis for this sentence
+            enqueueChunkTTS(sentence);
+          },
+          // onDone: finalise text (in case collected differs from rendered)
+          (fullText) => {
+            setChat(c => {
+              const updated = [...c];
+              updated[updated.length - 1] = { role: "bot", text: fullText || rendered };
+              return updated;
+            });
+            setCL(false);
+          },
+        );
+      } catch (err) {
+        // SSE failed — graceful fallback to non-streaming
+        console.warn("Stream failed, falling back:", err);
+        const reply = await sendChat(m, result.archetype_id, currentChat);
+        setChat(c => {
+          const updated = [...c];
+          updated[updated.length - 1] = { role: "bot", text: reply };
+          return updated;
+        });
+        setCL(false);
+        if (reply) playTTS(reply);
+      }
+    } else {
+      // ── NON-STREAMING PATH (voice OFF): full JSON response ──────────
+      const reply = await sendChat(m, result.archetype_id, currentChat);
+      setChat(c => [...c, { role: "bot", text: reply }]);
+      setCL(false);
+    }
+  }, [msg, result, chat, voiceEnabled, enqueueChunkTTS, playTTS, stopAudio]);
 
   const accent = result?.archetype?.color || "#C9A227";
 
@@ -548,7 +631,7 @@ export default function Page() {
                   <h3 style={{ fontWeight: 900, fontSize: 18, letterSpacing: "-0.02em" }}>Ask Gemini</h3>
                   <p style={{ fontSize: 12, color: "var(--text-sub)", fontWeight: 500 }}>Powered by Gemini · Live 271k row Olympic database</p>
                 </div>
-                <button onClick={() => { if (voiceEnabled) { audioRef.current?.pause(); window.speechSynthesis?.cancel(); setIsSpeaking(false); } setVoiceEnabled(v => !v); }}
+                <button onClick={() => { if (voiceEnabled) stopAudio(); setVoiceEnabled(v => !v); }}
                   style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 99, background: voiceEnabled ? `${result.archetype.color}20` : "var(--border-color)", border: `1px solid ${voiceEnabled ? result.archetype.color + "60" : "transparent"}`, color: voiceEnabled ? result.archetype.color : "var(--text-sub)", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.2s", flexShrink: 0 }}>
                   {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                   {voiceEnabled ? "Voice ON" : "Voice"}

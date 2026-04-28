@@ -1,19 +1,20 @@
 """
 main.py — TeamUSA Digital Mirror API
 
-Endpoints (data-first, no agent required):
+Endpoints:
   GET  /api/stats          — real dataset stats (athlete count, years, medals)
   GET  /api/archetypes     — all 6 archetypes with cluster stats
   POST /api/match          — instant biometric match (pure Python K-means)
   GET  /api/timeline       — scatter data for 120-year visualization
-  POST /api/chat           — optional Gemini chat (100/day rate limit per IP)
+  POST /api/chat           — Gemini chat, full JSON (100/day rate limit per IP)
+  POST /api/chat-stream    — Gemini chat, SSE sentence chunks for real-time TTS
   GET  /health
 """
-import os, json, asyncio
+import os, json, asyncio, re
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -142,3 +143,78 @@ Paralympic alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
 
     response = ask_gemini(req.message, context, req.history)
     return {"response": response}
+
+
+# ── Sentence chunker ─────────────────────────────────────────────────────────
+_SENTENCE_RE = re.compile(r'(?<=[.!?])\s+')
+
+def _split_sentences(text: str, min_chars: int = 40) -> list[str]:
+    """
+    Split text into sentence chunks for streaming TTS.
+    Merges very short fragments (< min_chars) with the next sentence
+    so TTS doesn't synthesize tiny incomplete phrases.
+    """
+    raw = _SENTENCE_RE.split(text.strip())
+    chunks: list[str] = []
+    buf = ""
+    for part in raw:
+        part = part.strip()
+        if not part:
+            continue
+        buf = (buf + " " + part).strip() if buf else part
+        if len(buf) >= min_chars:
+            chunks.append(buf)
+            buf = ""
+    if buf:
+        chunks.append(buf)
+    return chunks or [text.strip()]
+
+
+@app.post("/api/chat-stream")
+@limiter.limit("100/day")
+async def chat_stream(request: Request, req: ChatRequest):
+    """
+    Streaming SSE version of /api/chat.
+    Phase 1: Run Gemini agent with tools (grounded, accurate).
+    Phase 2: Stream the final answer as sentence chunks via SSE so the
+             frontend can pipe each sentence to TTS immediately — audio
+             starts playing before the full response finishes rendering.
+
+    SSE event format:
+      data: {"chunk": "<sentence>", "index": 0, "done": false}\n\n
+      data: {"chunk": "", "index": -1, "done": true}\n\n
+    """
+    from data.public_data import get_all_archetypes
+    archs = {a["id"]: a for a in get_all_archetypes()}
+    arch = archs.get(req.archetype_id, {})
+
+    context = ""
+    if arch:
+        context = f"""
+The user's current biometric match: {arch.get('label', req.archetype_id)} ({arch.get('description', '')})
+Top olympic sports for this build: {', '.join(arch.get('olympic_sports', [])[:4])}
+Paralympic alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
+"""
+
+    # Phase 1: run agent with full tool-calling (synchronous — tools must complete
+    # before we can stream, since function calling is not streamable)
+    full_response = await asyncio.to_thread(ask_gemini, req.message, context, req.history)
+
+    # Phase 2: stream sentence chunks via SSE
+    async def generate():
+        sentences = _split_sentences(full_response)
+        for i, sentence in enumerate(sentences):
+            payload = json.dumps({"chunk": sentence, "index": i, "done": False})
+            yield f"data: {payload}\n\n"
+            # Small yield gap so the client can begin TTS before next chunk arrives
+            await asyncio.sleep(0.01)
+        yield f"data: {json.dumps({'chunk': '', 'index': -1, 'done': True})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",   # Disable nginx buffering on Cloud Run
+        },
+    )

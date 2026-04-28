@@ -151,7 +151,7 @@ export default function Page() {
   const [msg, setMsg] = useState("");
   const [chatLoading, setCL] = useState(false);
   const [copied, setCopied] = useState(false);
-  // Voice Oracle state
+  // Voice assistant state
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [micState, setMicState] = useState<"idle" | "listening" | "processing">("idle");
   const [isSpeaking, setIsSpeaking] = useState(false);

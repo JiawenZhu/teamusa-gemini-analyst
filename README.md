@@ -42,6 +42,7 @@
 
 ## Architecture
 
+### Runtime Request Flow
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         USER (Browser)                              │
@@ -69,22 +70,22 @@
    └─────────────────────────┘           │         │
                                          │         │
                           ┌──────────────┘         └─────────────┐
-                          ▼                                       ▼
+                          ▼ /api/match                            ▼ /api/chat
            ┌──────────────────────────┐        ┌─────────────────────────────┐
            │  In-Memory Data Layer    │        │  Gemini 2.5 Flash Agent     │
            │  (loaded at startup)     │        │  (POST /api/chat only)      │
            │                          │        │                             │
-           │  • Olympic CSV download  │        │  System prompt + 10 tools:  │
-           │    (rgriff23/Olympic_     │        │  ├─ get_medal_stats         │
-           │     history, MIT)         │        │  ├─ get_athlete_biometrics  │
-           │  • Filter: USA + Summer  │        │  ├─ get_sport_breakdown      │
-           │  • scikit-learn KMeans   │        │  ├─ get_top_nations          │
-           │    (6 clusters, 8,108    │        │  ├─ get_athlete_age_stats    │
-           │     athlete records)      │        │  ├─ get_gender_breakdown    │
-           │  • Instant /api/match    │        │  ├─ get_games_summary       │
-           │    → archetype_id +      │        │  ├─ get_sport_history       │
-           │      percentile stats     │        │  ├─ get_bmi_by_sport        │
-           └──────────────────────────┘        │  └─ get_custom_sql_data     │
+           │  8,108 athlete records   │        │  System prompt + 10 tools:  │
+           │  KMeans → 6 archetypes   │        │  ├─ get_medal_stats         │
+           │  StandardScaler fitted   │        │  ├─ get_athlete_biometrics  │
+           │                          │        │  ├─ get_sport_breakdown      │
+           │  • Instant /api/match    │        │  ├─ get_top_nations          │
+           │    → archetype_id +      │        │  ├─ get_athlete_age_stats    │
+           │      percentile stats    │        │  ├─ get_gender_breakdown    │
+           └──────────────────────────┘        │  ├─ get_games_summary       │
+                                               │  ├─ get_sport_history       │
+                                               │  ├─ get_bmi_by_sport        │
+                                               │  └─ get_custom_sql_data     │
                                                │     (dynamic SELECT)        │
                                                └──────────────┬──────────────┘
                                                               │
@@ -92,28 +93,73 @@
                                           ┌───────────────────────────────────┐
                                           │  Cloud SQL PostgreSQL             │
                                           │  (teamusa-8b1ba:us-central1)      │
-                                          │                                   │
-                                          │  Tables:                          │
-                                          │  ├─ athletes  (id, name, sex,     │
-                                          │  │             height_cm,         │
-                                          │  │             weight_kg)         │
-                                          │  ├─ nations   (noc, team_name)    │
-                                          │  ├─ games     (year, season, city)│
-                                          │  ├─ sports    (name)              │
-                                          │  ├─ events    (sport_id, name)    │
-                                          │  └─ results   (athlete_id, noc,   │
-                                          │                games_id,          │
-                                          │                event_id, age,     │
-                                          │                medal)             │
-                                          │                                   │
+                                          │  271,116 rows · 1896–2016         │
                                           │  View: v_results_full             │
-                                          │  (271,116 rows · 1896–2016        │
-                                          │   id, name, sex, age, height_cm,  │
-                                          │   weight_kg, noc, team_name,      │
-                                          │   games, year, season, city,      │
-                                          │   sport, event, medal)            │
                                           └───────────────────────────────────┘
 ```
+
+### Data Ingestion Pipeline (One-Time Setup)
+```
+  Source: github.com/rgriff23/Olympic_history  (public domain, MIT)
+  File:   athlete_events.csv  (271,116 rows · all nations · 1896–2016)
+                    │
+                    ▼
+          scripts/seed_db.py
+  ┌────────────────────────────────────────────────────────┐
+  │  Step 1  Download CSV → cache to data/cache/           │
+  │  Step 2  pandas.read_csv() → 271,116 raw rows          │
+  │  Step 3  Normalize into 6 tables via psycopg2:         │
+  │          ├─ noc_regions  DROP_DUPLICATES("NOC")        │
+  │          ├─ athletes     DROP_DUPLICATES("ID")         │
+  │          │               NaN height/weight → None      │
+  │          ├─ games        DROP_DUPLICATES(Year,Season)  │
+  │          ├─ sports       unique Sport names            │
+  │          ├─ events       sport_id FK lookup            │
+  │          └─ results      athlete+games+event FK join   │
+  │                          ON CONFLICT DO NOTHING         │
+  │                          page_size=5000 batches         │
+  └────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+          Cloud SQL PostgreSQL
+          271,116 rows across 6 tables
+          + v_results_full flat view created via create_view.sql
+
+
+### Runtime Startup Pipeline (Every Cold Start / Container Boot)
+```
+  Source: same athlete_events.csv  (cached locally in container)
+                    │
+                    ▼
+          data/public_data.py  →  load_data()   [called once via FastAPI lifespan]
+  ┌────────────────────────────────────────────────────────┐
+  │  Step 1  Read CSV → pandas DataFrame (271,116 rows)    │
+  │  Step 2  Filter: NOC == "USA" AND Season == "Summer"   │
+  │          AND Height/Weight NOT NULL                    │
+  │          → ~8,108 records                              │
+  │  Step 3  Compute BMI = weight / (height/100)²          │
+  │          Drop outliers: BMI < 14 or BMI > 45           │
+  │  Step 4  DROP_DUPLICATES(Name, Year, Sport)            │
+  │  Step 5  sklearn StandardScaler.fit(Height,Weight,BMI) │
+  │  Step 6  KMeans(n_clusters=6, random_state=42)         │
+  │          .fit(scaled_X)                                │
+  │  Step 7  Map each cluster centroid → nearest           │
+  │          ARCHETYPE_PROFILE by Euclidean distance       │
+  │          to (seed_height, seed_weight) anchors         │
+  │          Archetypes: Powerhouse · Aerobic Engine ·     │
+  │          Explosive Athlete · Precision Maestro ·       │
+  │          Aquatic Titan · Agile Competitor              │
+  │  Step 8  Build per-archetype stats:                    │
+  │          avg/std height·weight·BMI · medal_rate ·      │
+  │          top_sports · sex_split · year_min/max         │
+  └────────────────────────────────────────────────────────┘
+                    │
+                    ▼
+       In-Memory: _df, _kmeans, _scaler, _clusters
+       Serves /api/match → instant prediction (<5ms)
+       Serves /api/stats, /api/archetypes, /api/timeline
+```
+
 
 ## Key Design Decisions
 

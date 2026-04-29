@@ -123,6 +123,76 @@ Open **http://localhost:3000**
 
 ---
 
+## ✅ Reproducible Testing
+
+> **No login credentials required.** The live demo is fully open — just visit the URL and start exploring.
+
+### Automated Backend Tests
+
+The backend ships with a **37-test pytest suite** that runs entirely offline (no database or Gemini API key needed). Tests cover all core API endpoints, the K-means ML matching logic, the Haversine distance calculator, and the SSE sentence chunker.
+
+```bash
+cd backend
+source .venv/bin/activate          # activate the virtual environment
+pip install pytest httpx           # install test dependencies (one-time)
+pytest test_api.py -v              # run all 37 tests
+```
+
+Expected output: `37 passed in ~4s`
+
+### Manual Feature Verification
+
+Open **https://teamusa-8b1ba.web.app** and follow these steps:
+
+#### 1. Biometric Matching (Olympic)
+- Enter **Height: 178 cm**, **Weight: 72 kg**, **Age: 25**
+- Click **"Find My Archetype"**
+- ✅ Expect: a named archetype card appears with medal rate, top sports, and closest historical athletes
+
+#### 2. Paralympic Mode
+- Toggle the **Paralympic** switch (top of the page)
+- Re-run the same biometrics
+- ✅ Expect: a distinct `para_*` archetype is returned (e.g., "Para Endurance Engine")
+
+#### 3. AI Analyst (Gemini Chat)
+- Type: `"Which city has hosted the most Olympics?"`
+- ✅ Expect: a grounded, data-backed answer (function-calling against the 271k-row DB)
+- Type: `"Tell me about the 2000 Sydney Olympics"`
+- ✅ Expect: the 3D globe **automatically rotates to Sydney, Australia**
+
+#### 4. Globe Auto-Fly
+- The globe should animate to any Olympic host city Gemini mentions — no button click needed
+- ✅ Verify by asking about multiple different cities in succession
+
+#### 5. Voice Assistant
+- Click the **microphone** icon and speak a question
+- ✅ Expect: the response is spoken aloud via TTS after the text streams in
+
+#### 6. LA 2028 Distance Tracker
+- Enter your hometown (e.g., `"Chicago, IL"`)
+- ✅ Expect: a distance in km/miles to the LA28 Coliseum, with a globe pin
+
+#### 7. Shareable Link
+- After matching, copy the URL — it should contain `?h=178&w=72&age=25`
+- Open the URL in a new private/incognito tab
+- ✅ Expect: the archetype result auto-loads without re-entering biometrics
+
+### Verifying the API Directly
+
+The backend API has interactive Swagger docs at:
+**https://teamusa-oracle-api-789615763226.us-central1.run.app/docs**
+
+Test the match endpoint directly:
+```bash
+curl -X POST https://teamusa-oracle-api-789615763226.us-central1.run.app/api/match \
+  -H "Content-Type: application/json" \
+  -d '{"height_cm": 178, "weight_kg": 72, "age": 25, "mode": "olympic"}'
+```
+
+Expected response includes `archetype_id`, `user_bmi`, and `closest_athletes`.
+
+---
+
 ## 📡 API Reference
 
 | Endpoint | Method | Description |

@@ -18,11 +18,12 @@ export function useVoiceAssistant() {
     if (voices.length === 0) return;
     
     // Priority 1: High quality human-like voices
-    let selected = voices.find(v => 
-      v.name.includes("Google US English") || 
-      v.name.includes("Samantha") ||
-      (v.name.includes("Premium") && v.lang.startsWith("en-"))
-    );
+    let selected = 
+      voices.find(v => v.name.includes("Natural") && v.lang.startsWith("en-")) ||
+      voices.find(v => v.name.includes("Neural") && v.lang.startsWith("en-")) ||
+      voices.find(v => v.name.includes("Premium") && v.lang.startsWith("en-")) ||
+      voices.find(v => v.name.includes("Google US English")) || 
+      voices.find(v => v.name.includes("Samantha"));
     
     // Priority 2: Standard English voices
     if (!selected) {

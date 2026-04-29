@@ -1,0 +1,10 @@
+Dockerfile
+.dockerignore
+.git
+.gitignore
+node_modules
+.next
+npm-debug.log*
+# CRITICAL: never include local env — production URL is baked via Dockerfile ARG
+.env.local
+.env*.local

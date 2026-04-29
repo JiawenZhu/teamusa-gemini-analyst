@@ -1,6 +1,6 @@
 // lib/api.ts — TeamUSA Digital Mirror API client
 
-export const API = "http://127.0.0.1:8000";
+export const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 export interface ArchetypeProfile {
   id: string; label: string; icon: string; color: string;
@@ -31,6 +31,14 @@ export interface TimelinePoint {
   Year: number; Height: number; Weight: number; BMI: number;
   Sport: string; archetype: string; Sex: string; has_medal: number;
 }
+export interface LocationData {
+  city: string;
+  lat: number;
+  lng: number;
+  distance_km: number;
+  distance_miles: number;
+}
+
 
 export async function fetchStats(): Promise<DatasetStats> {
   return fetch(`${API}/api/stats`).then(r => r.json());
@@ -38,21 +46,36 @@ export async function fetchStats(): Promise<DatasetStats> {
 export async function fetchArchetypes(): Promise<ArchetypeProfile[]> {
   return fetch(`${API}/api/archetypes`).then(r => r.json()).then(d => d.archetypes);
 }
-export async function matchBiometrics(height_cm: number, weight_kg: number, age?: number): Promise<MatchResult> {
+export async function matchBiometrics(height_cm: number, weight_kg: number, age?: number, mode: "olympic" | "paralympic" = "olympic"): Promise<MatchResult> {
   return fetch(`${API}/api/match`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ height_cm, weight_kg, age }),
+    body: JSON.stringify({ height_cm, weight_kg, age, mode }),
   }).then(r => r.json());
+}
+export async function registerLocation(city_name: string, session_id?: string): Promise<LocationData> {
+  const res = await fetch(`${API}/api/location`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ city_name, session_id }),
+  });
+  if (!res.ok) {
+    const error = await res.json();
+    throw new Error(error.detail || "Location lookup failed");
+  }
+  return res.json();
 }
 export async function fetchTimeline(): Promise<TimelinePoint[]> {
   return fetch(`${API}/api/timeline`).then(r => r.json()).then(d => d.athletes || []);
 }
-export async function sendChat(message: string, archetype_id: string, history: {role: string, text: string}[] = []): Promise<string> {
+export async function sendChat(
+  message: string,
+  archetype_id: string,
+  history: { role: string; text: string }[] = []
+): Promise<{ text: string; mapTrigger?: { city: string; lat: number; lng: number } }> {
   const d = await fetch(`${API}/api/chat`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message, archetype_id, history }),
   }).then(r => r.json());
-  return d.response || "";
+  return { text: d.response || "", mapTrigger: d.mapTrigger };
 }
 
 /**
@@ -74,6 +97,7 @@ export async function sendChatStream(
   onChunk: (text: string, audio: string | null, index: number) => void,
   onDone: (fullText: string) => void,
   signal?: AbortSignal,
+  onMapTrigger?: (city: string, lat: number, lng: number) => void,
 ): Promise<void> {
   const res = await fetch(`${API}/api/chat-stream`, {
     method: "POST",
@@ -105,7 +129,12 @@ export async function sendChatStream(
       try {
         const payload = JSON.parse(dataLine.slice(5).trim()) as {
           text: string; audio: string | null; index: number; done: boolean;
+          mapTrigger?: { city: string; lat: number; lng: number };
         };
+        // Feature B: handle globe city trigger events
+        if (payload.mapTrigger && onMapTrigger) {
+          onMapTrigger(payload.mapTrigger.city, payload.mapTrigger.lat, payload.mapTrigger.lng);
+        }
         if (payload.done) {
           onDone(collected.join(" "));
           return;

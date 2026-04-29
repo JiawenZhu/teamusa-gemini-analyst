@@ -104,6 +104,30 @@ def get_custom_sql_data(sql: str):
     return queries.execute_dynamic_query(sql)
 
 
+def trigger_map_view(city_name: str):
+    """
+    Call this tool to fly the interactive 3D globe to a specific Olympic host city.
+    Use whenever you mention a specific city that has hosted the Olympics or Paralympics.
+    Also use when the user asks to "show me", "fly to", or "navigate to" a city.
+    Examples: "Beijing", "Athens", "Los Angeles", "London", "Sydney", "Tokyo"
+    Returns: { city, lat, lng, triggered: true }
+    """
+    import httpx
+    try:
+        r = httpx.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": city_name, "format": "json", "limit": 1},
+            headers={"User-Agent": "TeamUSA-Oracle/1.0"},
+            timeout=5
+        )
+        results = r.json()
+        if results:
+            return {"city": city_name, "lat": float(results[0]["lat"]), "lng": float(results[0]["lon"]), "triggered": True}
+    except Exception:
+        pass
+    return {"city": city_name, "triggered": False}
+
+
 # The tool list passed to Gemini
 TOOLS = [
     get_medal_stats,
@@ -115,11 +139,12 @@ TOOLS = [
     get_games_summary,
     get_sport_history,
     get_bmi_by_sport,
-    get_custom_sql_data
+    get_custom_sql_data,
+    trigger_map_view,
 ]
 
 
-SYSTEM_PROMPT = """You are the Team USA Gemini Analyst — a precise, data-driven AI analyst with access to a real PostgreSQL database containing 271,116 rows of Olympic history from 1896 to 2016.
+SYSTEM_PROMPT = """You are the Team USA Gemini Analyst — a precise, data-driven AI analyst with access to a real Olympic database containing 271,116 rows of verified historical records.
 
 ═══ YOUR THINKING PROCESS ═══
 For EVERY question, follow this exact sequence:
@@ -170,11 +195,21 @@ For EVERY question, follow this exact sequence:
    • Reason: athletes have middle names stored (e.g., "LeBron Raymone James").
 
 5. EMPTY RESULTS: If a tool returns 0 rows or empty, report that honestly:
-   "The database has no records for [X] in the 1896–2016 dataset."
-   Do NOT hallucinate or guess.
+   "Our dataset has no records for [X]." Do NOT hallucinate or guess.
 
-6. DATA COVERAGE: If the answer references data only through 2016, say:
-   "Based on the Olympic records available from 1896 to 2016..."
+6. DATA COVERAGE — IMPORTANT LANGUAGE RULE:
+   NEVER say "1896–2016" or repeat the year range in your response unless the user
+   specifically asks about the dataset's coverage or time range.
+   Instead, refer to the data professionally:
+   ✅ "According to our records..."
+   ✅ "Our Olympic database shows..."
+   ✅ "Based on the data we have..."
+   ✅ "Historically, across all Summer Games in our database..."
+   ❌ "Based on the Olympic records available from 1896 to 2016..."
+   ❌ "In the 1896–2016 dataset..."
+   The dataset covers Summer Olympic Games through 2016. If a user asks about
+   more recent Games (2020, 2024), clearly state: "Our records go up to the 2016
+   Rio Games — we don't have data for [year] yet."
 
 7. MULTI-STEP PROBLEMS — call multiple tools then reason:
    • Comparison questions → query both sides → subtract/divide
@@ -184,12 +219,19 @@ For EVERY question, follow this exact sequence:
 
 8. TONE: Warm, inspiring, data-confident. Always cite the actual numbers from tools.
 
+9. MAP CONTROL — Use trigger_map_view when:
+   • You mention a specific Olympic or Paralympic host city in your response
+   • The user says "show me", "fly to", "where is", "navigate to" + a city
+   • You are discussing country data where a specific host city is relevant
+   Call trigger_map_view(city_name) silently — the result will animate the globe for the user.
+   Examples: Beijing 2008 → trigger_map_view("Beijing"), Sydney 2000 → trigger_map_view("Sydney")
+
 ═══ DATABASE REFERENCE ═══
 Primary query surface: v_results_full
 Columns: id, name, sex, age, height_cm, weight_kg, noc, team_name,
          year, season, city, sport, event, medal
 medal values: 'Gold' | 'Silver' | 'Bronze' | NULL (did not medal)
-Years covered: 1896–2016 (Summer Games only for most data)
+Coverage: Summer Olympic Games (most complete data)
 USA filter: noc = 'USA'
 """
 
@@ -197,7 +239,7 @@ USA filter: noc = 'USA'
 def ask_gemini(question: str, context: str = "", history: list = None):
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return "Error: GEMINI_API_KEY not found."
+        return "Error: GEMINI_API_KEY not found.", None
 
     client = genai.Client(api_key=api_key)
 
@@ -228,7 +270,26 @@ def ask_gemini(question: str, context: str = "", history: list = None):
         )
 
         response = chat.send_message(question)
-        print(f"✅ Gemini Response: {response.text}")
-        return response.text if response.text else "The analyst could not find a clear answer."
+        response_text = response.text if response.text else "The analyst could not find a clear answer."
+        print(f"✅ Gemini Response: {response_text[:120]}...")
+
+        # Feature B: scan the response for trigger_map_view function call results
+        map_trigger = None
+        try:
+            for candidate in response.candidates or []:
+                for part in candidate.content.parts or []:
+                    if hasattr(part, "function_response") and part.function_response:
+                        if part.function_response.name == "trigger_map_view":
+                            result = dict(part.function_response.response or {})
+                            if result.get("triggered"):
+                                map_trigger = {
+                                    "city": result.get("city"),
+                                    "lat": result.get("lat"),
+                                    "lng": result.get("lng"),
+                                }
+        except Exception as scan_err:
+            print(f"⚠️ Map trigger scan error: {scan_err}")
+
+        return response_text, map_trigger
     except Exception as e:
-        return f"Error communicating with Gemini: {str(e)}"
+        return f"Error communicating with Gemini: {str(e)}", None

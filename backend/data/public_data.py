@@ -63,6 +63,53 @@ _clusters: dict | None = None
 _scaler: StandardScaler | None = None
 _kmeans: KMeans | None = None
 
+# Paralympic global state (separate model, same CSV source)
+_para_df: pd.DataFrame | None = None
+_para_clusters: dict | None = None
+_para_scaler: StandardScaler | None = None
+_para_kmeans: KMeans | None = None
+
+# Paralympic archetype profiles
+PARALYMPIC_PROFILES = [
+    {"id": "para_powerhouse",     "label": "Para Powerhouse",      "icon": "🦾",
+     "color": "#EF4444", "seed_weight": 95, "seed_height": 182,
+     "description": "Dominant upper-body strength. Matches wheelchair rugby, para powerlifting, and throwing events.",
+     "olympic_sports":    ["Wheelchair Rugby", "Para Powerlifting", "Para Shot Put", "Para Discus"],
+     "paralympic_sports": ["Wheelchair Rugby", "Para Powerlifting", "Para Shot Put"]},
+    {"id": "para_endurance",      "label": "Para Endurance Engine", "icon": "♿",
+     "color": "#3B82F6", "seed_weight": 58, "seed_height": 170,
+     "description": "Lean aerobic profile. Matches para marathon, para cycling, and para triathlon.",
+     "olympic_sports":    ["Para Marathon", "Para Cycling Road", "Para Triathlon"],
+     "paralympic_sports": ["Para Marathon T54", "Para Cycling H4", "Para Triathlon"]},
+    {"id": "para_sprinter",       "label": "Para Sprinter",         "icon": "⚡",
+     "color": "#F59E0B", "seed_weight": 72, "seed_height": 178,
+     "description": "Explosive speed and fast-twitch power. Matches para sprints and jumping events.",
+     "olympic_sports":    ["Para 100m", "Para 200m", "Para Long Jump", "Para High Jump"],
+     "paralympic_sports": ["Para Sprint T53", "Para 100m", "Para Long Jump T44"]},
+    {"id": "para_precision",      "label": "Para Precision Maestro", "icon": "🎯",
+     "color": "#8B5CF6", "seed_weight": 62, "seed_height": 168,
+     "description": "Fine motor control and steadiness. Matches para archery, boccia, shooting, and equestrian.",
+     "olympic_sports":    ["Para Archery", "Boccia", "Para Shooting", "Para Equestrian"],
+     "paralympic_sports": ["Para Archery", "Boccia", "Para Shooting", "Para Equestrian"]},
+    {"id": "para_aquatics",       "label": "Para Aquatics Titan",   "icon": "🏊",
+     "color": "#06B6D4", "seed_weight": 82, "seed_height": 188,
+     "description": "Long wingspan and hydrodynamics. Matches para swimming across all classes.",
+     "olympic_sports":    ["Para Swimming S8", "Para Swimming S14", "Para Swimming S5"],
+     "paralympic_sports": ["Para Swimming S8-S14", "Para Swimming S1-S5"]},
+    {"id": "para_team_athlete",   "label": "Para Team Competitor",  "icon": "🏀",
+     "color": "#10B981", "seed_weight": 80, "seed_height": 185,
+     "description": "Team sport IQ and court vision. Matches wheelchair basketball, sitting volleyball, and wheelchair tennis.",
+     "olympic_sports":    ["Wheelchair Basketball", "Sitting Volleyball", "Wheelchair Tennis"],
+     "paralympic_sports": ["Wheelchair Basketball", "Sitting Volleyball", "Wheelchair Tennis"]},
+]
+
+# Sports in the Olympic dataset that are close analogues to Paralympic events
+PARA_PROXY_SPORTS = [
+    "Swimming", "Athletics", "Archery", "Shooting", "Rowing",
+    "Cycling", "Weightlifting", "Wrestling", "Judo", "Basketball",
+    "Volleyball", "Tennis", "Triathlon",
+]
+
 
 def _download_data() -> pd.DataFrame:
     """Download real Olympic CSV and cache it locally."""
@@ -142,8 +189,10 @@ def _run_clustering(df: pd.DataFrame) -> tuple:
 def load_data():
     """Called once at startup. Downloads, clusters, caches everything."""
     global _df, _clusters, _scaler, _kmeans
+    global _para_df, _para_clusters, _para_scaler, _para_kmeans
     try:
         raw = _download_data()
+        # Olympic model
         df = _build_usa_df(raw)
         km, scaler, df = _run_clustering(df)
         _df = df
@@ -155,9 +204,19 @@ def load_data():
         years  = f"{int(df['Year'].min())}–{int(df['Year'].max())}"
         medals = int(df["has_medal"].sum())
         print(f"✅ Public data loaded: {total:,} USA athlete-records · {sports} sports · {years} · {medals:,} medals")
+
+        # Paralympic model — built from proxy sports in same dataset
+        para_df = _build_para_df(raw)
+        para_km, para_scaler, para_df = _run_para_clustering(para_df)
+        _para_df = para_df
+        _para_kmeans = para_km
+        _para_scaler = para_scaler
+        _para_clusters = _build_para_cluster_stats(para_df)
+        print(f"✅ Paralympic proxy data: {len(para_df):,} athlete-records across {para_df['Sport'].nunique()} sports")
     except Exception as e:
         print(f"⚠️  Public data fetch failed ({e}). Falling back to synthetic data.")
         _df, _clusters, _scaler, _kmeans = None, None, None, None
+        _para_df, _para_clusters, _para_scaler, _para_kmeans = None, None, None, None
 
 
 def _build_cluster_stats(df: pd.DataFrame) -> dict:
@@ -277,3 +336,114 @@ def get_timeline_data() -> list:
         .sample(min(600, len(_df)), random_state=42)
     )
     return sample.rename(columns={"archetype_id": "archetype"}).to_dict("records")
+
+
+# ── Paralympic data helpers ───────────────────────────────────────────────────
+
+def _build_para_df(raw: pd.DataFrame) -> pd.DataFrame:
+    """Filter to Summer USA athletes in Paralympic-proxy sports with valid biometrics."""
+    df = raw[
+        (raw["NOC"] == "USA") &
+        (raw["Season"] == "Summer") &
+        (raw["Sport"].isin(PARA_PROXY_SPORTS)) &
+        raw["Height"].notna() &
+        raw["Weight"].notna()
+    ].copy()
+    df["BMI"] = df["Weight"] / ((df["Height"] / 100) ** 2)
+    df = df[(df["BMI"] > 14) & (df["BMI"] < 45)]
+    df = df.drop_duplicates(subset=["Name", "Year", "Sport"])
+    df["Medal"] = df["Medal"].fillna("")
+    df["has_medal"] = df["Medal"].isin(["Gold", "Silver", "Bronze"]).astype(int)
+    return df.reset_index(drop=True)
+
+
+def _assign_para_archetype(centroid_h: float, centroid_w: float) -> str:
+    best, best_dist = "para_team_athlete", float("inf")
+    for p in PARALYMPIC_PROFILES:
+        d = ((centroid_h - p["seed_height"]) ** 2 + (centroid_w - p["seed_weight"]) ** 2) ** 0.5
+        if d < best_dist:
+            best_dist = d
+            best = p["id"]
+    return best
+
+
+def _run_para_clustering(df: pd.DataFrame) -> tuple:
+    X = df[["Height", "Weight", "BMI"]].values
+    scaler = StandardScaler()
+    Xs = scaler.fit_transform(X)
+    km = KMeans(n_clusters=6, random_state=99, n_init=10)
+    km.fit(Xs)
+    labels = km.labels_
+    used = set()
+    cluster_to_archetype = {}
+    centroids_orig = scaler.inverse_transform(km.cluster_centers_)
+    for ci, (h, w, _) in enumerate(centroids_orig):
+        arch = _assign_para_archetype(h, w)
+        if arch in used:
+            candidates = sorted(PARALYMPIC_PROFILES, key=lambda p: ((h - p["seed_height"])**2 + (w - p["seed_weight"])**2))
+            for c in candidates:
+                if c["id"] not in used:
+                    arch = c["id"]; break
+        used.add(arch)
+        cluster_to_archetype[ci] = arch
+    df = df.copy()
+    df["cluster_idx"] = labels
+    df["archetype_id"] = df["cluster_idx"].map(cluster_to_archetype)
+    return km, scaler, df
+
+
+def _build_para_cluster_stats(df: pd.DataFrame) -> dict:
+    result = {}
+    for arch_id, group in df.groupby("archetype_id"):
+        profile = next((p for p in PARALYMPIC_PROFILES if p["id"] == arch_id), {})
+        top_sports = (
+            group.groupby("Sport")
+            .agg(count=("Name", "count"), medals=("has_medal", "sum"))
+            .sort_values("count", ascending=False)
+            .head(6).reset_index().to_dict("records")
+        )
+        result[arch_id] = {
+            **profile,
+            "athlete_count":   len(group),
+            "unique_athletes": group["Name"].nunique(),
+            "avg_height":      round(float(group["Height"].mean()), 1),
+            "avg_weight":      round(float(group["Weight"].mean()), 1),
+            "avg_bmi":         round(float(group["BMI"].mean()), 1),
+            "std_height":      round(float(group["Height"].std()), 1),
+            "std_weight":      round(float(group["Weight"].std()), 1),
+            "medal_rate":      round(float(group["has_medal"].mean()) * 100, 1),
+            "year_min":        int(group["Year"].min()),
+            "year_max":        int(group["Year"].max()),
+            "top_sports":      top_sports,
+            "sex_split": {
+                "M": int((group["Sex"] == "M").sum()),
+                "F": int((group["Sex"] == "F").sum()),
+            },
+        }
+    return result
+
+
+def get_para_archetypes() -> list:
+    if _para_clusters is None:
+        return [p for p in PARALYMPIC_PROFILES]
+    return list(_para_clusters.values())
+
+
+def match_para_biometrics(height_cm: float, weight_kg: float, age: int | None) -> dict:
+    """Find the closest Paralympic archetype for given biometrics."""
+    bmi = weight_kg / ((height_cm / 100) ** 2)
+    if _para_kmeans is not None and _para_scaler is not None and _para_df is not None:
+        X = _para_scaler.transform([[height_cm, weight_kg, bmi]])
+        cluster_idx = int(_para_kmeans.predict(X)[0])
+        archetype_id = _para_df[_para_df["cluster_idx"] == cluster_idx]["archetype_id"].iloc[0]
+        cluster_data = _para_clusters.get(archetype_id, {})
+        group = _para_df[_para_df["archetype_id"] == archetype_id].copy()
+        group["dist"] = ((group["Height"] - height_cm) ** 2 + (group["Weight"] - weight_kg) ** 2) ** 0.5
+        closest = group.nsmallest(8, "dist")[["Sport", "Year", "Height", "Weight", "Sex", "Medal"]].to_dict("records")
+        h_pct = int((_para_df["Height"] < height_cm).mean() * 100)
+        w_pct = int((_para_df["Weight"] < weight_kg).mean() * 100)
+        pct_note = f"Taller than {h_pct}% · Heavier than {w_pct}% of Paralympic-sport athletes in this dataset"
+        return {"archetype_id": archetype_id, "archetype": cluster_data, "user_bmi": round(bmi, 1), "closest_athletes": closest, "percentile_note": pct_note, "mode": "paralympic"}
+    else:
+        best = min(PARALYMPIC_PROFILES, key=lambda p: (height_cm - p["seed_height"])**2 + (weight_kg - p["seed_weight"])**2)
+        return {"archetype_id": best["id"], "archetype": best, "user_bmi": round(bmi, 1), "closest_athletes": [], "percentile_note": "", "mode": "paralympic"}

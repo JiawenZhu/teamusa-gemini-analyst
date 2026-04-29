@@ -11,7 +11,7 @@ Endpoints:
   POST /api/tts            — Gemini TTS synthesis endpoint
   GET  /health
 """
-import os, json, asyncio, re
+import os, json, asyncio, re, math, httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +22,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from data.public_data import load_data, get_dataset_stats, get_all_archetypes, match_biometrics, get_timeline_data
+from data.public_data import load_data, get_dataset_stats, get_all_archetypes, match_biometrics, get_timeline_data, match_para_biometrics, get_para_archetypes
 from db import api_routes, public_api
 from agents.olympic_agent import ask_gemini
 from agents.gemini_tts import synthesize_text_to_wav_b64, synthesize_sentence_to_wav_b64
@@ -60,6 +60,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ALLOWED_ORIGINS = [
     "https://teamusa-8b1ba.web.app",
     "https://teamusa-8b1ba.firebaseapp.com",
+    "https://teamusa-oracle-frontend-789615763226.us-central1.run.app",
     # Local development
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -82,6 +83,11 @@ class MatchRequest(BaseModel):
     height_cm: float = Field(..., ge=120, le=230)
     weight_kg: float = Field(..., ge=30,  le=200)
     age: int | None  = Field(None, ge=10, le=80)
+    mode: str = "olympic"  # "olympic" | "paralympic"
+
+class LocationRequest(BaseModel):
+    city_name: str
+    session_id: str | None = None
 
 
 class ChatMessage(BaseModel):
@@ -116,15 +122,72 @@ def archetypes():
 
 @app.post("/api/match")
 def match(req: MatchRequest):
-    """Instant biometric matching — pure Python K-means, zero latency."""
-    result = match_biometrics(req.height_cm, req.weight_kg, req.age)
-    return result
+    """Instant biometric matching — routes to Olympic or Paralympic K-means model."""
+    if req.mode == "paralympic":
+        return match_para_biometrics(req.height_cm, req.weight_kg, req.age)
+    return match_biometrics(req.height_cm, req.weight_kg, req.age)
+
+
+@app.get("/api/para-archetypes")
+def para_archetypes():
+    """All 6 Paralympic archetypes with cluster stats."""
+    return {"archetypes": get_para_archetypes()}
 
 
 @app.get("/api/timeline")
 def timeline():
     """600-point sample of real athlete data for the scatter visualization."""
     return {"athletes": get_timeline_data()}
+
+@app.post("/api/location")
+async def register_location(req: LocationRequest):
+    """Geocode a city, calculate distance to LA, and save to DB."""
+    # 1. Geocode with Nominatim (OpenStreetMap) for zero-setup ease
+    async with httpx.AsyncClient() as client:
+        res = await client.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": req.city_name, "format": "json", "limit": 1},
+            headers={"User-Agent": "TeamUSA-Oracle/3.0"}
+        )
+        data = res.json()
+    
+    if not data:
+        raise HTTPException(status_code=404, detail="City not found. Please try a different city name.")
+        
+    lat = float(data[0]["lat"])
+    lng = float(data[0]["lon"])
+    name = data[0]["display_name"].split(',')[0] # Get the first part of the name
+    
+    # 2. Haversine distance to LA (34.0522, -118.2437)
+    la_lat, la_lng = 34.0522, -118.2437
+    r = 6371 # Earth radius in km
+    dlat = math.radians(la_lat - lat)
+    dlng = math.radians(la_lng - lng)
+    a = math.sin(dlat/2)**2 + math.cos(math.radians(lat)) * math.cos(math.radians(la_lat)) * math.sin(dlng/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    distance_km = int(r * c)
+    distance_miles = int(distance_km * 0.621371)
+    
+    # 3. Save to database
+    from db.queries import get_db_connection
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    INSERT INTO olympic_fans_geo (session_id, hometown_name, latitude, longitude, distance_to_la_km)
+                    VALUES (%s, %s, %s, %s, %s)
+                """, (req.session_id, name, lat, lng, distance_km))
+                conn.commit()
+    except Exception as e:
+        print("Failed to save location to DB:", e)
+        
+    return {
+        "city": name,
+        "lat": lat,
+        "lng": lng,
+        "distance_km": distance_km,
+        "distance_miles": distance_miles
+    }
 
 
 @app.post("/api/chat")
@@ -143,8 +206,12 @@ Top olympic sports for this build: {', '.join(arch.get('olympic_sports', [])[:4]
 Paralympic alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
 """
 
-    response = ask_gemini(req.message, context, req.history)
-    return {"response": response}
+    response, map_trigger = ask_gemini(req.message, context, req.history)
+    result = {"response": response}
+    if map_trigger:
+        result["mapTrigger"] = map_trigger
+    return result
+
 
 
 # ── Gemini TTS endpoint ───────────────────────────────────────────────────────────
@@ -237,23 +304,24 @@ Paralympic alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
 """
 
     # Phase 1: agent runs (tools complete, grounded answer ready)
-    full_response = await asyncio.to_thread(ask_gemini, req.message, context, req.history)
+    full_response, map_trigger = await asyncio.to_thread(ask_gemini, req.message, context, req.history)
 
     # Phase 2: progressive chunked SSE
     async def generate():
+        # Feature B: if Gemini triggered a map view, emit it first as a special event
+        if map_trigger:
+            yield f"data: {json.dumps({'mapTrigger': map_trigger, 'text': '', 'audio': None, 'index': -1, 'done': False})}\n\n"
+
         sentences = _split_sentences(full_response)
         groups    = _progressive_groups(sentences)
 
         for i, group in enumerate(groups):
             group_text = " ".join(group)
-
-            # Synthesize this group via Gemini TTS
-            # Group 0 is tiny (1 sentence) so this returns in ~1s → minimum TTFA
-            audio_b64 = await synthesize_sentence_to_wav_b64(group_text)
+            audio_b64 = None
 
             payload = json.dumps({
                 "text":  group_text,
-                "audio": audio_b64,   # base64 WAV or null (client falls back)
+                "audio": audio_b64,
                 "index": i,
                 "done":  False,
             })

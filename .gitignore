@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 .env
 .env.local
+.env.*.local
 firebase-service-account.json
 backend/data/centroids.pkl
 backend/data/athletes.csv

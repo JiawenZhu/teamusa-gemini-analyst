@@ -4,13 +4,13 @@ import { getFirestore } from "firebase/firestore";
 import { getAnalytics, isSupported } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: "NEXT_PUBLIC_FIREBASE_API_KEY_REDACTED",
-  authDomain: "teamusa-8b1ba.firebaseapp.com",
-  projectId: "teamusa-8b1ba",
-  storageBucket: "teamusa-8b1ba.firebasestorage.app",
-  messagingSenderId: "789615763226",
-  appId: "1:789615763226:web:5a21c2f523dd6c143b56a3",
-  measurementId: "G-VNRE5VP9V0",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 // Prevent duplicate app initialization in Next.js hot reload

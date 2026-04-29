@@ -254,11 +254,14 @@ def ask_gemini(question: str, context: str = "", history: list = None):
             contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg.text)]))
     contents.append(types.Content(role="user", parts=[types.Part.from_text(text=question)]))
 
-    try:
-        print(f"🤖 Asking Gemini: {question}")
+    # Only keep the last 6 messages (3 exchanges) to avoid stale thought signatures
+    # that accumulate in longer conversations and trigger 400 INVALID_ARGUMENT
+    safe_history = contents[:-1][-6:] if len(contents) > 1 else None
+
+    def _call_gemini(history_to_use):
         chat = client.chats.create(
             model="gemini-3-flash-preview",
-            history=contents[:-1] if len(contents) > 1 else None,
+            history=history_to_use,
             config=types.GenerateContentConfig(
                 system_instruction=final_system_prompt,
                 tools=TOOLS,
@@ -268,8 +271,21 @@ def ask_gemini(question: str, context: str = "", history: list = None):
                 )
             )
         )
+        return chat.send_message(question)
 
-        response = chat.send_message(question)
+    try:
+        print(f"🤖 Asking Gemini: {question}")
+        try:
+            response = _call_gemini(safe_history)
+        except Exception as first_err:
+            err_str = str(first_err)
+            # "Corrupted thought signature" or similar history-related 400 errors
+            if "400" in err_str or "thought" in err_str.lower() or "signature" in err_str.lower() or "INVALID_ARGUMENT" in err_str:
+                print(f"⚠️ History caused {err_str[:80]} — retrying without history")
+                response = _call_gemini(None)
+            else:
+                raise
+
         response_text = response.text if response.text else "The analyst could not find a clear answer."
         print(f"✅ Gemini Response: {response_text[:120]}...")
 
@@ -293,3 +309,4 @@ def ask_gemini(question: str, context: str = "", history: list = None):
         return response_text, map_trigger
     except Exception as e:
         return f"Error communicating with Gemini: {str(e)}", None
+

@@ -1,4 +1,6 @@
+// @ts-nocheck — legacy DeckGL globe (replaced by Three.js GlobeScene)
 "use client";
+
 import React, { useState, useEffect } from 'react';
 import DeckGL from '@deck.gl/react';
 import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core';
@@ -12,7 +14,14 @@ const EARTH_POLYGON = [
     [[-180, 90], [0, 90], [180, 90], [180, -90], [0, -90], [-180, -90]]
 ];
 
-export default function GlobeBackground({ userLocation, triggerCity, isInteractive }) {
+interface GlobeBgProps {
+  userLocation?: { lat: number; lng: number } | null;
+  triggerCity?: { lat: number; lng: number } | null;
+  isInteractive?: boolean;
+}
+
+export default function GlobeBackground({ userLocation, triggerCity, isInteractive }: GlobeBgProps) {
+
     const [viewState, setViewState] = useState({
         longitude: LA_COORDS[0],
         latitude: LA_COORDS[1],

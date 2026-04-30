@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Auto-generated Firebase Data Connect SDK — not hand-authored
+    "src/dataconnect-generated/**",
   ]),
 ]);
 

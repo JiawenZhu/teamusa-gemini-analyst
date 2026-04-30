@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, startTransition } from "react";
 import { fetchStats, fetchArchetypes, matchBiometrics, fetchTimeline, sendChat, sendChatStream, registerLocation } from "@/lib/api";
 
 import type { DatasetStats, ArchetypeProfile, MatchResult, TimelinePoint, LocationData } from "@/lib/api";
@@ -12,6 +12,8 @@ import { ArchetypeExplorer } from "@/components/ArchetypeExplorer";
 import { TimelineChart } from "@/components/TimelineChart";
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 import GlobeScene from "@/components/globe/GlobeScene";
+import FullscreenGlobe from "@/components/globe/FullscreenGlobe";
+import { AnimatePresence } from "framer-motion";
 
 export default function Page() {
   const [stats, setStats] = useState<DatasetStats | null>(null);
@@ -38,6 +40,11 @@ export default function Page() {
   // Globe city trigger from Gemini chat
   const [triggerCity, setTriggerCity] = useState<{ lat: number; lng: number; city: string } | null>(null);
   const [globeToast, setGlobeToast] = useState<string | null>(null);
+  const [isGlobeFullscreen, setIsGlobeFullscreen] = useState(false);
+
+  // Stats Modal State
+  const [showStatsModal, setShowStatsModal] = useState(false);
+  const [pendingChatTopic, setPendingChatTopic] = useState<string | null>(null);
 
   const {
     voiceEnabled,
@@ -65,9 +72,11 @@ export default function Page() {
       const pw = params.get("w");
       const pa = params.get("age");
       if (ph && pw) {
-        setH(ph); setW(pw);
-        if (pa) setAge(pa);
-        setIsSharedView(true);
+        startTransition(() => {
+          setH(ph); setW(pw);
+          if (pa) setAge(pa);
+          setIsSharedView(true);
+        });
         // Auto-run match after archetypes load (slight delay)
         setTimeout(() => {
           setMatching(true);
@@ -96,9 +105,12 @@ export default function Page() {
     setMatching(true); setResult(null); setGlitchArch(null);
     const r = await matchBiometrics(parseFloat(h), parseFloat(w), age ? parseInt(age) : undefined, mode);
     let ticks = 0;
-    setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
     const interval = setInterval(() => {
       setGlitchArch(archetypes[Math.floor(Math.random() * archetypes.length)]);
+      if (ticks === 0) {
+        // Scroll once the component has actually mounted
+        setTimeout(() => resultRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+      }
       ticks++;
       if (ticks > 15) {
         clearInterval(interval);
@@ -125,7 +137,7 @@ export default function Page() {
   const fireTriggerCity = (city: string, lat: number, lng: number) => {
     setTriggerCity({ city, lat, lng });
     setGlobeToast(city);
-    setTimeout(() => setGlobeToast(null), 4000);
+    setTimeout(() => setGlobeToast(null), 8000);
   };
 
   const handleLocationSubmit = async () => {
@@ -135,17 +147,13 @@ export default function Page() {
     try {
       const data = await registerLocation(hometown);
       setLocationData(data);
-    } catch (err: any) {
-      setLocError(err.message || "Could not find city");
+    } catch (err: unknown) {
+      setLocError((err as Error).message || "Could not find city");
     } finally {
       setLocLoading(false);
     }
   };
 
-  // Use the native browser logic exclusively now
-  const playTTS = useCallback(async (text: string) => {
-    playNativeTTS(text);
-  }, [playNativeTTS]);
 
   const doChat = useCallback(async () => {
     if (!msg.trim() || !result) return;
@@ -210,6 +218,7 @@ export default function Page() {
   const accent = result?.archetype?.color || "#C9A227";
 
   return (
+    <>
     <main style={{ background: "transparent", minHeight: "100vh", color: "var(--text-main)", position: "relative", overflow: "hidden" }}>
 
       {/* Globe fly-to toast */}
@@ -218,6 +227,10 @@ export default function Page() {
           initial={{ opacity: 0, y: 30, x: "-50%" }}
           animate={{ opacity: 1, y: 0, x: "-50%" }}
           exit={{ opacity: 0, y: 30, x: "-50%" }}
+          onClick={() => {
+            setIsGlobeFullscreen(true);
+            setGlobeToast(null);
+          }}
           style={{
             position: "fixed", bottom: 32, left: "50%",
             zIndex: 9999,
@@ -227,17 +240,91 @@ export default function Page() {
             display: "flex", alignItems: "center", gap: 10,
             backdropFilter: "blur(12px)",
             boxShadow: "0 4px 20px rgba(59,130,246,0.3)",
-            pointerEvents: "none",
+            cursor: "pointer",
+            userSelect: "none",
           }}
+          whileHover={{ scale: 1.04, boxShadow: "0 6px 28px rgba(59,130,246,0.5)" }}
+          whileTap={{ scale: 0.97 }}
         >
           <span style={{ fontSize: 18 }}>🌍</span>
           <span style={{ color: "#93c5fd", fontWeight: 600, fontSize: 14 }}>
             Globe flying to <strong style={{ color: "white" }}>{globeToast}</strong>
           </span>
+          <span style={{ fontSize: 11, color: "#60a5fa", marginLeft: 4, opacity: 0.8 }}>↑ view</span>
         </motion.div>
       )}
       
       {/* Dynamic Ambient Background */}
+      <AnimatePresence>
+        {showStatsModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+              background: "rgba(0,0,0,0.8)", backdropFilter: "blur(4px)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              zIndex: 10000, padding: 20
+            }}
+            onClick={() => setShowStatsModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              style={{
+                background: "#020817", border: "1px solid #1E293B",
+                borderRadius: 24, padding: "32px 0 0 0", maxWidth: 640, width: "100%",
+                boxShadow: "0 20px 40px rgba(0,0,0,0.5)", overflow: "hidden"
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{ padding: "0 32px 16px" }}>
+                <h2 style={{ margin: "0 0 12px 0", fontSize: 24, fontWeight: 700, color: "#F8FAFC", textAlign: "center" }}>
+                  Hold up! Let's find your archetype first.
+                </h2>
+                <p style={{ color: "#94A3B8", margin: 0, fontSize: 14, lineHeight: 1.5, textAlign: "center" }}>
+                  Gemini gives much better answers when it knows your Olympic DNA. Fill out your stats to unlock personalized chat insights!
+                </p>
+              </div>
+              
+              <div style={{ transform: "scale(0.95)", transformOrigin: "top" }}>
+                <InputSection 
+                  id="mirror-modal"
+                  h={h} setH={setH} w={w} setW={setW} age={age} setAge={setAge}
+                  matching={matching} 
+                  doMatch={async () => {
+                    // First, close the modal and map so the user can see the main page animations
+                    setShowStatsModal(false);
+                    setIsGlobeFullscreen(false);
+                    
+                    // Immediately scroll to the top section so they see the animation start
+                    setTimeout(() => {
+                      document.getElementById('mirror-main')?.scrollIntoView({ behavior: "instant", block: "start" });
+                    }, 50);
+                    
+                    // Run the match (this plays the glitch animation and shows the DNA card)
+                    await doMatch();
+                    
+                    // If they came from the map, wait 3.5 seconds so they can see their card, then scroll to chat
+                    if (pendingChatTopic) {
+                      setTimeout(() => {
+                        setMsg(`Tell me more about Team USA in ${pendingChatTopic}`);
+                        document.getElementById('chat-panel')?.scrollIntoView({ behavior: "smooth", block: "center" });
+                      }, 3500);
+                      setPendingChatTopic(null);
+                    }
+                  }}
+                  mode={mode} setMode={setMode}
+                  hideHeader={true}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div style={{
         position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
         background: `radial-gradient(circle at 50% 40%, ${bgAccent}15, transparent 70%)`,
@@ -278,7 +365,7 @@ export default function Page() {
         {/* ══════════════════════════════════════════════════════════════
              PREMIUM 3D GLOBE SECTION — Full-width dark space panel
         ════════════════════════════════════════════════════════════════ */}
-        <section style={{
+        <section id="globe-section" style={{
           width: "100%",
           background: "linear-gradient(180deg, #020817 0%, #040f2a 100%)",
           padding: "60px 24px",
@@ -374,16 +461,31 @@ export default function Page() {
             </div>
 
             {/* RIGHT PANEL — The 3D Globe */}
-            <div style={{ flex: 1, minWidth: 320, height: 520, position: "relative" }}>
+            <div
+              style={{ flex: 1, minWidth: 320, height: 520, position: "relative", cursor: "zoom-in" }}
+              onDoubleClick={() => setIsGlobeFullscreen(true)}
+              title="Double-click to open immersive globe"
+            >
               <GlobeScene
                 userLocation={locationData ? { lat: locationData.lat, lng: locationData.lng, city: locationData.city } : null}
                 triggerCity={triggerCity}
               />
+              {/* Double-click hint */}
+              <div style={{
+                position: "absolute", bottom: 12, right: 12,
+                background: "rgba(2,8,23,0.75)", border: "1px solid #1e293b",
+                borderRadius: 8, padding: "5px 10px",
+                fontSize: 11, color: "#64748b",
+                backdropFilter: "blur(8px)", pointerEvents: "none",
+              }}>
+                🖱️ Double-click for immersive view
+              </div>
             </div>
           </div>
         </section>
 
-        <InputSection
+        <InputSection 
+          id="mirror-main"
           h={h} setH={setH} w={w} setW={setW} age={age} setAge={setAge}
           matching={matching} doMatch={doMatch}
           mode={mode} setMode={setMode}
@@ -398,7 +500,7 @@ export default function Page() {
             />
             
             {result && (
-              <section style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px 80px" }}>
+              <section id="chat-panel" style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px 80px" }}>
                 <ChatPanel 
                   result={result}
                   chat={chat} msg={msg} setMsg={setMsg} chatLoading={chatLoading} doChat={doChat}
@@ -436,5 +538,31 @@ export default function Page() {
         </footer>
       </div>
     </main>
+
+      {/* ── Fullscreen Globe Modal ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {isGlobeFullscreen && (
+          <FullscreenGlobe
+            userLocation={locationData ? { lat: locationData.lat, lng: locationData.lng, city: locationData.city } : null}
+            triggerCity={triggerCity}
+            archetypeId={result?.archetype_id ?? selected?.id ?? "aerobic_engine"}
+            onClose={() => setIsGlobeFullscreen(false)}
+            onGoToChat={(topic) => {
+              if (!result) {
+                setPendingChatTopic(topic);
+                setShowStatsModal(true);
+                return;
+              }
+              setIsGlobeFullscreen(false);
+              setMsg(`Tell me more about Team USA in ${topic}`);
+              setTimeout(() => {
+                document.getElementById('chat-panel')?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }, 400);
+            }}
+          />
+        )}
+      </AnimatePresence>
+    </>
   );
 }
+

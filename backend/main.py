@@ -139,6 +139,86 @@ def timeline():
     """600-point sample of real athlete data for the scatter visualization."""
     return {"athletes": get_timeline_data()}
 
+
+# ── Olympic host cities with medal counts ─────────────────────────────────────
+# Pre-geocoded coordinates for all Olympic host cities (avoids Nominatim latency)
+_OLYMPIC_CITY_COORDS: dict[str, dict] = {
+    "Athens":          {"lat": 37.9838,  "lng": 23.7275},
+    "Paris":           {"lat": 48.8566,  "lng": 2.3522},
+    "St. Louis":       {"lat": 38.6270,  "lng": -90.1994},
+    "London":          {"lat": 51.5074,  "lng": -0.1278},
+    "Stockholm":       {"lat": 59.3293,  "lng": 18.0686},
+    "Antwerp":         {"lat": 51.2194,  "lng": 4.4025},
+    "Amsterdam":       {"lat": 52.3676,  "lng": 4.9041},
+    "Los Angeles":     {"lat": 34.0522,  "lng": -118.2437},
+    "Berlin":          {"lat": 52.5200,  "lng": 13.4050},
+    "Helsinki":        {"lat": 60.1699,  "lng": 24.9384},
+    "Melbourne":       {"lat": -37.8136, "lng": 144.9631},
+    "Rome":            {"lat": 41.9028,  "lng": 12.4964},
+    "Tokyo":           {"lat": 35.6762,  "lng": 139.6503},
+    "Mexico City":     {"lat": 19.4326,  "lng": -99.1332},
+    "Munich":          {"lat": 48.1351,  "lng": 11.5820},
+    "Montreal":        {"lat": 45.5017,  "lng": -73.5673},
+    "Moscow":          {"lat": 55.7558,  "lng": 37.6173},
+    "Seoul":           {"lat": 37.5665,  "lng": 126.9780},
+    "Barcelona":       {"lat": 41.3851,  "lng": 2.1734},
+    "Atlanta":         {"lat": 33.7490,  "lng": -84.3880},
+    "Sydney":          {"lat": -33.8688, "lng": 151.2093},
+    "Beijing":         {"lat": 39.9042,  "lng": 116.4074},
+    "Rio de Janeiro":  {"lat": -22.9068, "lng": -43.1729},
+    "Sarajevo":        {"lat": 43.8563,  "lng": 18.4131},
+    "Calgary":         {"lat": 51.0447,  "lng": -114.0719},
+    "Albertville":     {"lat": 45.6756,  "lng": 6.3921},
+    "Lillehammer":     {"lat": 61.1151,  "lng": 10.4662},
+    "Nagano":          {"lat": 36.6513,  "lng": 138.1810},
+    "Salt Lake City":  {"lat": 40.7608,  "lng": -111.8910},
+    "Turin":           {"lat": 45.0703,  "lng": 7.6869},
+    "Vancouver":       {"lat": 49.2827,  "lng": -123.1207},
+    "Sochi":           {"lat": 43.5855,  "lng": 39.7231},
+}
+
+@app.get("/api/olympic-cities")
+def olympic_cities():
+    """All Olympic host cities with USA medal counts (from DB) and coordinates."""
+    from db.queries import execute_dynamic_query
+    sql = """
+        SELECT city, year, season,
+               COUNT(CASE WHEN noc='USA' AND medal IS NOT NULL THEN 1 END) as usa_medals,
+               COUNT(CASE WHEN medal IS NOT NULL THEN 1 END) as total_medals
+        FROM v_results_full
+        GROUP BY city, year, season
+        ORDER BY year ASC
+    """
+    rows = execute_dynamic_query(sql)
+    if isinstance(rows, dict) and "error" in rows:
+        return {"cities": []}
+
+    result = []
+    seen: dict[str, dict] = {}
+    for row in rows:
+        city = row.get("city", "")
+        coords = _OLYMPIC_CITY_COORDS.get(city)
+        if not coords:
+            continue
+        if city not in seen:
+            seen[city] = {
+                "city": city,
+                "lat": coords["lat"],
+                "lng": coords["lng"],
+                "years": [],
+                "usa_medals": 0,
+                "total_medals": 0,
+                "season": row.get("season", "Summer"),
+            }
+        seen[city]["years"].append(int(row["year"]))
+        seen[city]["usa_medals"] += int(row.get("usa_medals") or 0)
+        seen[city]["total_medals"] += int(row.get("total_medals") or 0)
+
+    result = sorted(seen.values(), key=lambda x: min(x["years"]))
+    return {"cities": result}
+
+
+
 @app.post("/api/location")
 async def register_location(req: LocationRequest):
     """Geocode a city, calculate distance to LA, and save to DB."""
@@ -188,6 +268,73 @@ async def register_location(req: LocationRequest):
         "distance_km": distance_km,
         "distance_miles": distance_miles
     }
+
+
+class CityHighlightRequest(BaseModel):
+    city: str
+    season: str
+    years: list[int]
+    usa_medals: int
+    archetype_id: str
+
+
+@app.post("/api/city-highlights")
+def city_highlights(req: CityHighlightRequest):
+    """Generate 1-2 sentence highlight for a city using Gemini."""
+    from google import genai
+    from google.genai import types
+    from db.queries import execute_dynamic_query
+
+    # Fetch fun trivia about Team USA in this city from the DB
+    sports_sql = """
+        SELECT sport, COUNT(medal) as medal_count 
+        FROM v_results_full 
+        WHERE noc='USA' AND city=%s AND medal IS NOT NULL 
+        GROUP BY sport 
+        ORDER BY medal_count DESC 
+        LIMIT 3
+    """
+    sports_data = execute_dynamic_query(sports_sql, [req.city])
+    top_sports = ", ".join([f"{s['sport']} ({s['medal_count']} medals)" for s in sports_data]) if isinstance(sports_data, list) else "Data unavailable"
+
+    stars_sql = """
+        SELECT name, COUNT(medal) as golds 
+        FROM v_results_full 
+        WHERE noc='USA' AND city=%s AND medal='Gold' 
+        GROUP BY name 
+        ORDER BY golds DESC 
+        LIMIT 3
+    """
+    stars_data = execute_dynamic_query(stars_sql, [req.city])
+    top_stars = ", ".join([f"{s['name']} ({s['golds']} Golds)" for s in stars_data]) if isinstance(stars_data, list) else "Data unavailable"
+
+    client = genai.Client()
+    
+    prompt = f"""
+    You are a hype-building AI for the Team USA Olympic digital mirror.
+    The user (whose biometric archetype matches {req.archetype_id}) is looking at the Olympic city of {req.city}.
+    Season: {req.season}
+    Years Hosted: {', '.join(map(str, req.years))}
+    USA Medals Won Here: {req.usa_medals}
+    
+    Interesting Team USA Facts in {req.city}:
+    - Most dominant USA sports: {top_sports}
+    - Top USA Gold Medalists: {top_stars}
+
+    Write a punchy, exciting 2-3 sentence highlight about Team USA's incredible history or performance in this city. 
+    Use the interesting facts to name-drop a famous athlete or a dominant sport, making the response much more specific and engaging! 
+    Use markdown bolding (**keyword**) to highlight 2 or 3 exciting keywords (like the athlete name, sport, or adjective).
+    """
+
+    try:
+        response = client.models.generate_content(
+            model='gemini-3.1-flash-lite-preview',
+            contents=prompt,
+        )
+        return {"highlights": response.text}
+    except Exception as e:
+        print("Gemini error in city-highlights:", e)
+        return {"highlights": "Team USA has an incredible legacy here! (Highlights currently unavailable)"}
 
 
 @app.post("/api/chat")

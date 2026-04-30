@@ -104,6 +104,12 @@ def get_custom_sql_data(sql: str):
     return queries.execute_dynamic_query(sql)
 
 
+# Side-channel storage: automatic function calling handles the tool loop internally,
+# so function_response parts never appear in the final response object.
+# The tool stores its result here; ask_gemini reads it after the response returns.
+_last_map_trigger: dict | None = None
+
+
 def trigger_map_view(city_name: str):
     """
     Call this tool to fly the interactive 3D globe to a specific Olympic host city.
@@ -112,6 +118,7 @@ def trigger_map_view(city_name: str):
     Examples: "Beijing", "Athens", "Los Angeles", "London", "Sydney", "Tokyo"
     Returns: { city, lat, lng, triggered: true }
     """
+    global _last_map_trigger
     import httpx
     try:
         r = httpx.get(
@@ -122,9 +129,12 @@ def trigger_map_view(city_name: str):
         )
         results = r.json()
         if results:
-            return {"city": city_name, "lat": float(results[0]["lat"]), "lng": float(results[0]["lon"]), "triggered": True}
+            result = {"city": city_name, "lat": float(results[0]["lat"]), "lng": float(results[0]["lon"]), "triggered": True}
+            _last_map_trigger = result
+            return result
     except Exception:
         pass
+    _last_map_trigger = None
     return {"city": city_name, "triggered": False}
 
 
@@ -289,22 +299,17 @@ def ask_gemini(question: str, context: str = "", history: list = None):
         response_text = response.text if response.text else "The analyst could not find a clear answer."
         print(f"✅ Gemini Response: {response_text[:120]}...")
 
-        # Feature B: scan the response for trigger_map_view function call results
+        # Feature B: read the map trigger stored by trigger_map_view during automatic function calling
         map_trigger = None
-        try:
-            for candidate in response.candidates or []:
-                for part in candidate.content.parts or []:
-                    if hasattr(part, "function_response") and part.function_response:
-                        if part.function_response.name == "trigger_map_view":
-                            result = dict(part.function_response.response or {})
-                            if result.get("triggered"):
-                                map_trigger = {
-                                    "city": result.get("city"),
-                                    "lat": result.get("lat"),
-                                    "lng": result.get("lng"),
-                                }
-        except Exception as scan_err:
-            print(f"⚠️ Map trigger scan error: {scan_err}")
+        global _last_map_trigger
+        if _last_map_trigger and _last_map_trigger.get("triggered"):
+            map_trigger = {
+                "city": _last_map_trigger["city"],
+                "lat": _last_map_trigger["lat"],
+                "lng": _last_map_trigger["lng"],
+            }
+        _last_map_trigger = None  # reset for next call
+        print(f"🌍 Map trigger: {map_trigger}")
 
         return response_text, map_trigger
     except Exception as e:

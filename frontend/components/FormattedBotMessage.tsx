@@ -245,9 +245,16 @@ function renderTable(block: string, color: string): React.ReactNode {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function FormattedBotMessage({ text, color }: { text: string; color: string }) {
+  // --- Pre-processing ---
+  // 1. Ensure headings get their own block
+  // 2. Separate a ### heading from an immediately following table (| on next line)
+  // 3. Ensure each "N. " numbered item starts on its own block
   const normalised = text
-    .replace(/(#{1,4} [^\n]+)\n(?!#|\n)/g, "$1\n\n")
-    .replace(/(\n)(#{1,4} )/g, "\n\n$2");
+    .replace(/(#{1,4} [^\n]+)\n(?!#|\n)/g, "$1\n\n")  // heading → own block
+    .replace(/(\n)(#{1,4} )/g, "\n\n$2")              // ensure newline before heading
+    .replace(/([^\n])\n(\d+\.\s)/g, "$1\n\n$2")       // numbered items → own block
+    // Separate ### heading from immediately following pipe-table
+    .replace(/(#{1,4}[^\n]+)\n(\|)/g, "$1\n\n$2");   
 
   const blocks = normalised.split(/\n\n+/);
 
@@ -281,18 +288,13 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
           );
         }
 
-        // ── FIX 2: Numbered section "1. Title — rest of text" or "1. Title\nBody"
-        const numberedMatch = trimmed.match(/^(\d+)\.\s+(.+?)(?:\s*[—–-]\s*(.*))?$/s);
+        // ── FIX: Numbered section — stop at first newline so "2. 3. 4." don't collapse
+        const numberedMatch = trimmed.match(/^(\d+)\.\s+([^\n]+?)(?:\s*[—\u2013\u2012-]\s*([^\n]*))?$/);
         if (numberedMatch && !trimmed.startsWith("|")) {
           const [, num, rawTitle, rawRest] = numberedMatch;
-          // Separate title from body — body is everything after first sentence if long
-          const firstNewline = rawTitle.indexOf("\n");
-          const title = firstNewline > -1 ? rawTitle.slice(0, firstNewline) : rawTitle;
-          const restFromTitle = firstNewline > -1 ? rawTitle.slice(firstNewline + 1) : "";
-          const rest = [rawRest || "", restFromTitle].filter(Boolean).join(" ").trim();
-
+          const rest = (rawRest || "").trim();
           return (
-            <NumberedHeading key={i} num={num} title={title.trim()} rest={rest} color={color} />
+            <NumberedHeading key={i} num={num} title={rawTitle.trim()} rest={rest} color={color} />
           );
         }
 
@@ -302,7 +304,7 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
           if (card) return <div key={i}>{card}</div>;
         }
 
-        // ── FIX 1 & 4: Gemini's Insight card — solid bg, no gradient clip, white text
+        // ── FIX 1 & 4: Gemini&apos;s Insight card — solid bg, no gradient clip, white text
         if (/\*\*Gemini'?s? Insight[:：]?\*\*|\*\*The Verdict[:：]?\*\*/i.test(trimmed)) {
           const clean = trimmed
             .replace(/\*\*Gemini'?s? Insight[:：]?\*\*/gi, "")
@@ -337,7 +339,7 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
                     <Sparkles size={13} style={{ color }} />
                   </div>
                   <span style={{ fontWeight: 800, letterSpacing: "0.08em", fontSize: 11, textTransform: "uppercase", color }}>
-                    Gemini's Insight
+                    Gemini&apos;s Insight
                   </span>
                 </div>
                 {/* FIX 1: pure white text on dark background for max legibility */}

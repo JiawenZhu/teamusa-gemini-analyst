@@ -31,7 +31,7 @@
 | **🏅 Olympic / ♿ Paralympic Toggle** | Switch between two independent K-means models — Olympic or Paralympic — to find your archetype in either Games. LA 2028 hosts both. |
 | **🌍 3D Interactive Globe** | NASA-textured Earth with atmosphere glow, starfield, sonar city markers, and animated flight arcs — built with Three.js + react-three-fiber |
 | **🤖 Gemini AI Analyst** | Real function-calling agent with 10 tools that query a live 271k-row PostgreSQL database. Never hallucinates — all answers are grounded in data. |
-| **🎤 Voice Assistant** | Full voice I/O — speak your question, hear the answer via TTS |
+| **🎤 Voice Assistant** | Full voice I/O — speak your question, hear the answer via browser-native Web Speech API (SpeechSynthesis + SpeechRecognition) |
 | **🔗 Shareable Links** | `?h=175&w=70&age=25` URL params auto-run the match and show a shared-result banner |
 | **🗺️ Globe City Control** | Gemini automatically flies the globe to any Olympic host city mentioned in the conversation |
 | **📍 LA 2028 Distance Tracker** | Geocodes your city and calculates the great-circle distance to the Coliseum in Los Angeles |

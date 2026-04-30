@@ -1,12 +1,11 @@
 "use client";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 
 export function useVoiceAssistant() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [micState, setMicState] = useState<"idle" | "listening" | "processing">("idle");
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // ── Native Browser TTS setup ──────────────────────────────────────────────
   const [nativeVoice, setNativeVoice] = useState<SpeechSynthesisVoice | null>(null);
@@ -35,10 +34,15 @@ export function useVoiceAssistant() {
   }, []);
 
   // Set up voice loading (browsers load voices asynchronously)
-  if (typeof window !== 'undefined' && window.speechSynthesis && !nativeVoice) {
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    loadVoices();
-  }
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis && !nativeVoice) {
+      window.speechSynthesis.addEventListener('voiceschanged', loadVoices);
+      loadVoices();
+      return () => {
+        window.speechSynthesis.removeEventListener('voiceschanged', loadVoices);
+      };
+    }
+  }, [nativeVoice, loadVoices]);
 
   // Helper to play TTS via browser native API
   const playNativeTTS = useCallback((text: string) => {
@@ -71,14 +75,12 @@ export function useVoiceAssistant() {
     playNativeTTS(text);
   }, [playNativeTTS]);
 
-  const enqueueWavChunk = useCallback(async (audioBase64: string) => {
+  const enqueueWavChunk = useCallback(async (_audioBase64: string) => {
     // Currently disabled in favor of native TTS
-    console.log("enqueueWavChunk bypassed for native TTS");
   }, []);
   
-  const enqueueChunkTTS = useCallback(async (text: string) => {
+  const enqueueChunkTTS = useCallback(async (_text: string) => {
     // Currently disabled in favor of native TTS
-    console.log("enqueueChunkTTS bypassed for native TTS");
   }, []);
 
   const stopAudio = useCallback(() => {
@@ -96,7 +98,8 @@ export function useVoiceAssistant() {
     }
     stopAudio();
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = (window as Window & { SpeechRecognition?: typeof globalThis.SpeechRecognition; webkitSpeechRecognition?: typeof globalThis.SpeechRecognition }).SpeechRecognition
+      || (window as Window & { webkitSpeechRecognition?: typeof globalThis.SpeechRecognition }).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -104,7 +107,7 @@ export function useVoiceAssistant() {
 
     recognition.onstart = () => setMicState("listening");
 
-    recognition.onresult = (event: any) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let finalTranscript = "";
       let interimTranscript = "";
       for (let i = event.resultIndex; i < event.results.length; ++i) {
@@ -119,7 +122,7 @@ export function useVoiceAssistant() {
       }
     };
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error("Speech recognition error:", event.error);
       setMicState("idle");
     };

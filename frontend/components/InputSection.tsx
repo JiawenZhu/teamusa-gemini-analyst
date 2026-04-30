@@ -6,30 +6,34 @@ type Mode = "olympic" | "paralympic";
 export function InputSection({
   h, setH, w, setW, age, setAge,
   matching, doMatch,
-  mode, setMode,
+  mode, setMode, hideHeader, id
 }: {
   h: string; setH: (v: string) => void;
   w: string; setW: (v: string) => void;
   age: string; setAge: (v: string) => void;
   matching: boolean; doMatch: () => void;
   mode: Mode; setMode: (m: Mode) => void;
+  hideHeader?: boolean;
+  id?: string;
 }) {
   const isOlympic = mode === "olympic";
   const accent = isOlympic ? "#C9A227" : "#818CF8"; // gold vs purple-blue for para
 
   return (
-    <section id="mirror" style={{ maxWidth: 640, margin: "0 auto", padding: "0 24px 64px" }}>
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <div style={{ display: "inline-block", background: "#B2223418", border: "1px solid #B2223440", borderRadius: 99, padding: "5px 14px", fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", color: "#EF4444", marginBottom: 14 }}>
-          YOUR DIGITAL MIRROR
+    <section id={id || "mirror-input"} style={{ maxWidth: 640, margin: "0 auto", padding: "0 24px 64px" }}>
+      {!hideHeader && (
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
+          <div style={{ display: "inline-block", background: "#B2223418", border: "1px solid #B2223440", borderRadius: 99, padding: "5px 14px", fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", color: "#EF4444", marginBottom: 14 }}>
+            YOUR DIGITAL MIRROR
+          </div>
+          <h2 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>
+            Find Your Place in <span style={{ color: accent }}>Team USA History</span>
+          </h2>
+          <p style={{ color: "var(--text-sub)", fontSize: 14 }}>
+            Enter your body measurements — we&apos;ll match you to 120 years of real {isOlympic ? "Olympic" : "Paralympic"} athlete profiles.
+          </p>
         </div>
-        <h2 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>
-          Find Your Place in <span style={{ color: accent }}>Team USA History</span>
-        </h2>
-        <p style={{ color: "var(--text-sub)", fontSize: 14 }}>
-          Enter your body measurements — we'll match you to 120 years of real {isOlympic ? "Olympic" : "Paralympic"} athlete profiles.
-        </p>
-      </div>
+      )}
 
       {/* ── Mode Toggle ─────────────────────────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>

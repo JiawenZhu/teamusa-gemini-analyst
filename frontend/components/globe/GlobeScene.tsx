@@ -17,8 +17,8 @@ interface GlobeSceneProps {
 // Convert lng to Earth group Y rotation so that city faces the camera (+Z axis)
 function lngToRotationY(lng: number): number {
   // Camera looks along -Z. The sphere maps lng=0 → -X side by default.
-  // This offset centres the Atlantic facing the camera at rest.
-  return -(lng * Math.PI / 180) + Math.PI;
+  // This offset centres the city facing the camera at rest.
+  return -(lng * Math.PI / 180) - Math.PI / 2;
 }
 
 // ─── Single rotating group with smart fly-to ────────────────────────────────
@@ -91,9 +91,7 @@ function GlobeContent({ userLocation, triggerCity }: GlobeSceneProps) {
   return (
     <>
       <Stars radius={120} depth={60} count={8000} factor={5} saturation={0.3} fade speed={0.5} />
-      <directionalLight position={[5, 3, 5]} intensity={3.8} color="#fff8e7" />
-      <ambientLight intensity={0.45} color="#4466aa" />
-      <pointLight position={[-8, -4, -8]} intensity={0.4} color="#1a3060" />
+      {/* No lights needed — meshBasicMaterial renders raw texture colours */}
       <EarthGroup userLocation={userLocation} triggerCity={triggerCity} />
       <OrbitControls
         enableZoom={true}

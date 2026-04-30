@@ -105,10 +105,14 @@ interface CityMarkersProps {
 
 export default function CityMarkers({ userLocation, triggerCity }: CityMarkersProps) {
   const LA = { lat: 34.0522, lng: -118.2437 };
+  // Check if trigger city is LA (by name or coordinates)
+  const isTriggerLA = triggerCity && (
+    triggerCity.city === 'Los Angeles' || 
+    (Math.abs(triggerCity.lat - LA.lat) < 1 && Math.abs(triggerCity.lng - LA.lng) < 1)
+  );
 
   return (
     <group>
-      <PulsingCityMarker lat={LA.lat} lng={LA.lng} color="#ff4444" label="📍 LA 2028" />
       {userLocation && (
         <PulsingCityMarker
           lat={userLocation.lat}
@@ -117,11 +121,11 @@ export default function CityMarkers({ userLocation, triggerCity }: CityMarkersPr
           label={`📍 ${userLocation.city || 'You'}`}
         />
       )}
-      {triggerCity && (
+      {triggerCity && !isTriggerLA && (
         <PulsingCityMarker
           lat={triggerCity.lat}
           lng={triggerCity.lng}
-          color="#00FFFF"
+          color="#ff3366"
           label={`📍 ${triggerCity.city || 'City'}`}
         />
       )}

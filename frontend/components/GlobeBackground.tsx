@@ -1,7 +1,8 @@
-// @ts-nocheck — legacy DeckGL globe (replaced by Three.js GlobeScene)
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-ignore — legacy DeckGL globe (replaced by Three.js GlobeScene)
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, startTransition } from 'react';
 import DeckGL from '@deck.gl/react';
 import { _GlobeView as GlobeView, FlyToInterpolator } from '@deck.gl/core';
 import { ArcLayer, ScatterplotLayer, SolidPolygonLayer, GeoJsonLayer } from '@deck.gl/layers';
@@ -33,26 +34,30 @@ export default function GlobeBackground({ userLocation, triggerCity, isInteracti
     // Animate initial zoom when switching to interactive mode
     useEffect(() => {
         if (isInteractive && !userLocation && !triggerCity) {
-            setViewState(v => ({
-                ...v,
-                zoom: 1.2,
-                transitionDuration: 2000,
-                transitionInterpolator: new FlyToInterpolator()
-            }));
+            startTransition(() => {
+                setViewState(v => ({
+                    ...v,
+                    zoom: 1.2,
+                    transitionDuration: 2000,
+                    transitionInterpolator: new FlyToInterpolator()
+                }));
+            });
         }
     }, [isInteractive, userLocation, triggerCity]);
 
     // Fly to user location
     useEffect(() => {
         if (userLocation && userLocation.lng) {
-            setViewState({
-                longitude: userLocation.lng,
-                latitude: userLocation.lat,
-                zoom: 1.2, // Backed out zoom to see both cities and the arc
-                pitch: 25, // Gentle pitch, not 45, to prevent distortion
-                bearing: 0,
-                transitionDuration: 3000,
-                transitionInterpolator: new FlyToInterpolator()
+            startTransition(() => {
+                setViewState({
+                    longitude: userLocation.lng,
+                    latitude: userLocation.lat,
+                    zoom: 1.2,
+                    pitch: 25,
+                    bearing: 0,
+                    transitionDuration: 3000,
+                    transitionInterpolator: new FlyToInterpolator()
+                });
             });
         }
     }, [userLocation]);
@@ -60,14 +65,16 @@ export default function GlobeBackground({ userLocation, triggerCity, isInteracti
     // Fly to triggered city from Chat
     useEffect(() => {
         if (triggerCity && triggerCity.lng) {
-            setViewState({
-                longitude: triggerCity.lng,
-                latitude: triggerCity.lat,
-                zoom: 1.5,
-                pitch: 20,
-                bearing: 0,
-                transitionDuration: 4000,
-                transitionInterpolator: new FlyToInterpolator()
+            startTransition(() => {
+                setViewState({
+                    longitude: triggerCity.lng,
+                    latitude: triggerCity.lat,
+                    zoom: 1.5,
+                    pitch: 20,
+                    bearing: 0,
+                    transitionDuration: 4000,
+                    transitionInterpolator: new FlyToInterpolator()
+                });
             });
         }
     }, [triggerCity]);

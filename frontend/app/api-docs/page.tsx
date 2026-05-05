@@ -79,24 +79,26 @@ export default function ApiDocsPage() {
       id: "athletes",
       method: "GET",
       path: "/api/v1/public/athletes",
-      title: "Search Athletes",
-      description: "Paginated search across 135,000+ Olympic athletes. Filter by name or sex to discover biometric averages and demographics.",
+      title: "Search Athletes (Aggregate)",
+      description: "Query aggregate biometric statistics across 135,000+ historical Olympic athlete records (1896–2016 public dataset). Filter by sport or sex to retrieve demographic averages. This endpoint returns statistical summaries, not individual profiles.",
       icon: <Activity className="w-6 h-6" style={{ color: "#C9A227" }} />,
       params: [
-        { name: "search", type: "string", desc: "Filter by athlete name (e.g., 'Phelps')" },
+        { name: "sport", type: "string", desc: "Filter by sport name (e.g., 'Swimming', 'Athletics')" },
         { name: "sex", type: "string", desc: "'M' or 'F'" },
+        { name: "noc", type: "string", desc: "3-letter country code (e.g., 'USA')" },
         { name: "page", type: "integer", desc: "Page number (default: 1)" },
         { name: "limit", type: "integer", desc: "Results per page (max: 100)" }
       ],
-      code: `curl -X GET "https://api.teamusa.app/api/v1/public/athletes?search=Phelps&limit=5"`,
+      code: `curl -X GET "https://api.teamusa.app/api/v1/public/athletes?sport=Swimming&noc=USA&limit=5"`,
       response: `{
   "data": [
     {
-      "id": "e2f1...",
-      "name": "Michael Fred Phelps, II",
+      "sport": "Swimming",
+      "noc": "USA",
       "sex": "M",
-      "height": 193.0,
-      "weight": 91.0
+      "avg_height_cm": 187.4,
+      "avg_weight_kg": 79.2,
+      "total_athletes": 412
     }
   ],
   "meta": { "total_count": 1, "page": 1, "limit": 5, "has_more": false }
@@ -105,24 +107,20 @@ export default function ApiDocsPage() {
     {
       id: "athlete-details",
       method: "GET",
-      path: "/api/v1/public/athletes/{athlete_id}",
-      title: "Athlete Profile & Results",
-      description: "Get a comprehensive chronological timeline of an athlete's entire Olympic career, including every event and medal.",
+      path: "/api/v1/public/sports/{sport}/history",
+      title: "Sport History & Medal Trends",
+      description: "Get a chronological medal trend for a specific sport across all Olympic Games (1896–2016). Returns year-by-year aggregate medal counts per nation — no individual athlete data.",
       icon: <Terminal className="w-6 h-6" style={{ color: "#C9A227" }} />,
-      code: `curl -X GET "https://api.teamusa.app/api/v1/public/athletes/e2f1..."`,
+      code: `curl -X GET "https://api.teamusa.app/api/v1/public/sports/Swimming/history"`,
       response: `{
-  "athlete": {
-    "name": "Michael Fred Phelps, II",
-    "noc": "USA",
-    "team_name": "United States"
-  },
-  "results": [
+  "sport": "Swimming",
+  "history": [
     {
-      "year": 2004,
-      "sport": "Swimming",
-      "event": "Men's 100 metres Butterfly",
-      "medal": "Gold",
-      "age": 19
+      "year": 2016,
+      "city": "Rio de Janeiro",
+      "noc": "USA",
+      "gold_medals": 16,
+      "total_medals": 33
     }
   ]
 }`
@@ -131,24 +129,28 @@ export default function ApiDocsPage() {
       id: "results",
       method: "GET",
       path: "/api/v1/public/results",
-      title: "Event Results Matrix",
-      description: "Query exactly who won what, when, and where across 270,000 historical records.",
+      title: "Medal Aggregate Matrix",
+      description: "Query aggregate medal counts by nation, year, and sport across 271,000+ historical records (1896–2016 public dataset). Returns statistical summaries, not individual athlete profiles.",
       icon: <Medal className="w-6 h-6" style={{ color: "#C9A227" }} />,
       params: [
         { name: "noc", type: "string", desc: "3-letter country code (e.g., 'USA')" },
-        { name: "year", type: "integer", desc: "Olympic year" },
+        { name: "year", type: "integer", desc: "Olympic year (1896–2016)" },
         { name: "medal", type: "string", desc: "'Gold', 'Silver', or 'Bronze'" },
         { name: "sport", type: "string", desc: "Sport name (e.g., 'Swimming')" }
       ],
       code: `curl -X GET "https://api.teamusa.app/api/v1/public/results?noc=USA&medal=Gold&year=2016"`,
       response: `{
-  "data": [
-    {
-      "name": "Simone Arianne Biles",
-      "sport": "Gymnastics",
-      "event": "Women's Individual All-Around",
-      "medal": "Gold"
-    }
+  "summary": {
+    "noc": "USA",
+    "year": 2016,
+    "gold_medals": 46,
+    "silver_medals": 37,
+    "bronze_medals": 38,
+    "top_sport": "Swimming"
+  },
+  "by_sport": [
+    { "sport": "Swimming", "gold_medals": 16 },
+    { "sport": "Athletics", "gold_medals": 13 }
   ],
   "meta": { "total_count": 139, "page": 1, "limit": 50, "has_more": true }
 }`
@@ -269,12 +271,22 @@ export default function ApiDocsPage() {
       </section>
 
       {/* ── FOOTER ─────────────────────────────────────────────────────── */}
-      <footer style={{ borderTop: "1px solid #1E293B", padding: "32px 24px", textAlign: "center" }}>
-        <p style={{ fontSize: 12, color: "#334155" }}>
-          Built for the <strong style={{ color: "#C9A227" }}>Vibe Code for Gold with Google</strong> hackathon ·
-          Data: github.com/rgriff23/Olympic_history (public domain)
+      <footer style={{ borderTop: "1px solid #1E293B", padding: "32px 16px", textAlign: "center" }}>
+        <p style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.7 }}>
+          Built for the{" "}
+          <a href="https://vibecodeforgoldwithgoogle.devpost.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#C9A227", fontWeight: 700, textDecoration: "none" }}>
+            Vibe Code for Gold with Google
+          </a>{" "}
+          hackathon.
         </p>
-        <p style={{ fontSize: 11, color: "#1E293B", marginTop: 6 }}>
+        <p style={{ fontSize: 11, color: "#64748B", marginTop: 6, lineHeight: 1.7, maxWidth: 620, margin: "6px auto 0" }}>
+          This project uses the{" "}
+          <a href="https://www.kaggle.com/datasets/heesoo37/120-years-of-olympic-history-athletes-and-results/data" target="_blank" rel="noopener noreferrer" style={{ color: "#64748B", textDecoration: "underline" }}>
+            CC0 Kaggle 120 Years of Olympic History dataset
+          </a>
+          , filtered to Team USA records from 1896–2016. All user-facing insights are aggregate, anonymized, and conditional.
+        </p>
+        <p style={{ fontSize: 11, color: "#1E293B", marginTop: 8 }}>
           Powered by Google Cloud · FastAPI · PostgreSQL
         </p>
       </footer>

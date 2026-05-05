@@ -13,7 +13,7 @@ Endpoints:
 """
 import os, json, asyncio, re, math, httpx
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
@@ -132,6 +132,93 @@ def match(req: MatchRequest):
 def para_archetypes():
     """All 6 Paralympic archetypes with cluster stats."""
     return {"archetypes": get_para_archetypes()}
+
+
+class ParaClassificationRequest(BaseModel):
+    archetype_id: str          # e.g. "para_sprinter"
+    sport: str = ""            # optional — narrow to a specific sport
+    user_height_cm: float = 0  # optional biometrics for personalisation
+    user_weight_kg: float = 0
+
+
+@app.post("/api/para-classification-explainer")
+async def para_classification_explainer(req: ParaClassificationRequest):
+    """
+    Gemini-powered deep-dive into the IPC classification system for a given
+    Paralympic archetype and optional sport.  Returns structured markdown.
+    """
+    from google import genai
+    from data.public_data import get_para_archetypes, PARALYMPIC_PROFILES
+
+    archetypes = {a["id"]: a for a in get_para_archetypes()}
+    arch = archetypes.get(req.archetype_id, {})
+    if not arch:
+        profile = next((p for p in PARALYMPIC_PROFILES if p["id"] == req.archetype_id), {})
+        arch = profile
+
+    sport_focus = f"with a specific focus on **{req.sport}**" if req.sport else ""
+    biometric_note = (
+        f"The user has provided their biometrics: {req.user_height_cm} cm / {req.user_weight_kg} kg. "
+        "Map these to likely functional class ranges where relevant."
+        if req.user_height_cm > 0 else ""
+    )
+
+    prompt = f"""You are an expert IPC classification educator. The user is exploring the {arch.get('label', req.archetype_id)} Paralympic archetype.
+
+DISCLAIMER (include briefly at the start of your response): This is educational analysis based on publicly documented IPC classification guidelines. It is not official IPC classification, medical assessment, or performance prediction for any specific individual.
+
+DATA NOTE: All Team USA statistics refer to the 1896-2016 public historical Olympic dataset (Kaggle). Do not reference post-2016 results.
+
+{biometric_note}
+
+Write a structured explainer covering ALL of the following sections.
+Do NOT use markdown headers (no ##, ###) or bold markers (**). Use plain section labels followed by a colon and a line break instead.
+Do NOT name or profile any specific athlete. Refer only to aggregate Team USA performance trends, sport eras, and anonymized historical patterns.
+
+Section 1 - Classification System Overview:
+- Explain the IPC functional classification system (impairment types: physical, visual, intellectual)
+- Clarify the difference between T (track), F (field), S/SB/SM (swimming), B (boccia), WH (wheelchair fencing) class codes
+- Give 2-3 concrete class code examples with what they mean (e.g., T54 = full arm/trunk function, wheelchair; T44 = leg impairment, ambulatory)
+
+Section 2 - Classes for This Archetype:
+- List the most relevant IPC class codes for the {arch.get('label', '')} archetype (e.g., {', '.join(arch.get('paralympic_sports', [])[:4])})
+- Explain what functional capabilities define each class
+- Describe how classification is assessed (medical evaluation, technical observation)
+
+Section 3 - Biometric and Performance Profile:
+- Typical height/weight ranges that have historically performed well in this archetype
+- How the physical profile described as {arch.get('description', '')} translates into competitive advantage at the Paralympic level
+- Compare aggregate average biometrics to Olympic counterparts in similar disciplines
+
+Section 4 - Team USA Legacy in This Archetype:
+- Describe 2-3 historical eras or milestones where Team USA performed strongly in this archetype (e.g., Atlanta 1996, Athens 2004, Tokyo 2020)
+- Reference aggregate medal count trends across eras
+- Do NOT name any specific individual athlete
+
+Section 5 - Training and Functional Demands:
+- Key physical attributes required
+- How classification rules shape training strategy (what is allowed, what is restricted)
+- Equipment adaptations (racing chair specs, prosthetic rules, etc.)
+
+Keep the tone expert but accessible. Be specific with class codes, medal count trends, and year ranges.
+"""
+
+    try:
+        client = genai.Client(vertexai=True, project="teamusa-8b1ba", location="global")
+        response = client.models.generate_content(
+            model="gemini-3.1-flash-lite-preview",
+            contents=prompt,
+        )
+        return {"explainer": response.text, "archetype": arch}
+    except Exception as e:
+        print("Gemini error in para-classification-explainer:", e)
+        # Fallback: return structured static content
+        return {
+            "explainer": f"## {arch.get('label', 'Paralympic Archetype')}\n\n{arch.get('description', '')}\n\n**Classification systems** are determined by the IPC based on functional impairment. Sports like Para Athletics use T/F codes (T = track, F = field) with numbers indicating the class (e.g., T53 = minimal trunk function, wheelchair; T44 = leg impairment, ambulatory).\n\nFor {', '.join(arch.get('paralympic_sports', [])[:3])}, athletes are evaluated by trained classifiers before competition.",
+            "archetype": arch,
+        }
+
+
 
 
 @app.get("/api/timeline")
@@ -280,51 +367,52 @@ class CityHighlightRequest(BaseModel):
 
 @app.post("/api/city-highlights")
 def city_highlights(req: CityHighlightRequest):
-    """Generate 1-2 sentence highlight for a city using Gemini."""
+    """Generate 1-2 sentence aggregate highlight for a city using Gemini."""
     from google import genai
-    from google.genai import types
     from db.queries import execute_dynamic_query
 
-    # Fetch fun trivia about Team USA in this city from the DB
+    # Top sports by Team USA medal count in this city
     sports_sql = """
-        SELECT sport, COUNT(medal) as medal_count 
-        FROM v_results_full 
-        WHERE noc='USA' AND city=%s AND medal IS NOT NULL 
-        GROUP BY sport 
-        ORDER BY medal_count DESC 
+        SELECT sport, COUNT(medal) as medal_count
+        FROM v_results_full
+        WHERE noc='USA' AND city=%s AND medal IS NOT NULL
+        GROUP BY sport
+        ORDER BY medal_count DESC
         LIMIT 3
     """
     sports_data = execute_dynamic_query(sports_sql, [req.city])
     top_sports = ", ".join([f"{s['sport']} ({s['medal_count']} medals)" for s in sports_data]) if isinstance(sports_data, list) else "Data unavailable"
 
-    stars_sql = """
-        SELECT name, COUNT(medal) as golds 
-        FROM v_results_full 
-        WHERE noc='USA' AND city=%s AND medal='Gold' 
-        GROUP BY name 
-        ORDER BY golds DESC 
+    # Top events by Team USA gold count in this city (aggregate, no names)
+    events_sql = """
+        SELECT event, COUNT(medal) as golds
+        FROM v_results_full
+        WHERE noc='USA' AND city=%s AND medal='Gold'
+        GROUP BY event
+        ORDER BY golds DESC
         LIMIT 3
     """
-    stars_data = execute_dynamic_query(stars_sql, [req.city])
-    top_stars = ", ".join([f"{s['name']} ({s['golds']} Golds)" for s in stars_data]) if isinstance(stars_data, list) else "Data unavailable"
+    events_data = execute_dynamic_query(events_sql, [req.city])
+    top_events = ", ".join([f"{e['event']} ({e['golds']} Golds)" for e in events_data]) if isinstance(events_data, list) else "Data unavailable"
 
-    client = genai.Client()
-    
-    prompt = f"""
-    You are a hype-building AI for the Team USA Olympic digital mirror.
-    The user (whose biometric archetype matches {req.archetype_id}) is looking at the Olympic city of {req.city}.
-    Season: {req.season}
-    Years Hosted: {', '.join(map(str, req.years))}
-    USA Medals Won Here: {req.usa_medals}
-    
-    Interesting Team USA Facts in {req.city}:
-    - Most dominant USA sports: {top_sports}
-    - Top USA Gold Medalists: {top_stars}
+    client = genai.Client(vertexai=True, project="teamusa-8b1ba", location="global")
 
-    Write a punchy, exciting 2-3 sentence highlight about Team USA's incredible history or performance in this city. 
-    Use the interesting facts to name-drop a famous athlete or a dominant sport, making the response much more specific and engaging! 
-    Use markdown bolding (**keyword**) to highlight 2 or 3 exciting keywords (like the athlete name, sport, or adjective).
-    """
+    prompt = f"""You are an educational analyst for the Team USA Olympic Digital Mirror (1896-2016 public Kaggle dataset).
+The user is exploring the Olympic city of {req.city} ({req.season}, {', '.join(map(str, req.years))}).
+Team USA won {req.usa_medals} medals here in total.
+
+Aggregate data for {req.city}:
+- Team USA's most dominant sports: {top_sports}
+- Top gold-medal events: {top_events}
+
+Write exactly 2 sentences summarizing Team USA's aggregate performance in {req.city}.
+Rules you MUST follow:
+- Do NOT name any specific athlete. Refer only to sports, events, medal counts, and eras.
+- Use conditional, editorial language: "historically", "Team USA athletes tended to", "the record shows".
+- Use **bold** to highlight 2-3 key terms — only sports names, event names, or descriptive adjectives. NEVER bold an athlete name.
+- Do NOT use ## headers. Plain prose only.
+- Keep it factual and concise. End with one specific sport or event stat from the data above.
+"""
 
     try:
         response = client.models.generate_content(
@@ -334,7 +422,7 @@ def city_highlights(req: CityHighlightRequest):
         return {"highlights": response.text}
     except Exception as e:
         print("Gemini error in city-highlights:", e)
-        return {"highlights": "Team USA has an incredible legacy here! (Highlights currently unavailable)"}
+        return {"highlights": f"Team USA won {req.usa_medals} medals in {req.city} across {len(req.years)} Games. (Extended highlights unavailable.)"}
 
 
 @app.post("/api/chat")
@@ -347,10 +435,12 @@ async def chat(request: Request, req: ChatRequest):
 
     context = ""
     if arch:
-        context = f"""
-The user's current biometric match: {arch.get('label', req.archetype_id)} ({arch.get('description', '')})
-Top olympic sports for this build: {', '.join(arch.get('olympic_sports', [])[:4])}
-Paralympic alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
+        context = f"""USER BIOMETRIC CONTEXT (1896-2016 public historical dataset):
+The user's biometric profile aligns with the aggregate cluster labeled: {arch.get('label', req.archetype_id)} ({arch.get('description', '')})
+Historically associated sports for this body-type cluster: {', '.join(arch.get('olympic_sports', [])[:4])}
+Paralympic sport alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
+IMPORTANT: Use conditional phrasing only — e.g., "athletes with similar builds have historically tended to..."
+Do NOT name or profile any specific athlete. Do NOT imply this user's performance will match any individual.
 """
 
     response, map_trigger = ask_gemini(req.message, context, req.history)
@@ -444,10 +534,12 @@ async def chat_stream(request: Request, req: ChatRequest):
 
     context = ""
     if arch:
-        context = f"""
-The user's current biometric match: {arch.get('label', req.archetype_id)} ({arch.get('description', '')})
-Top olympic sports for this build: {', '.join(arch.get('olympic_sports', [])[:4])}
-Paralympic alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
+        context = f"""USER BIOMETRIC CONTEXT (1896-2016 public historical dataset):
+The user's biometric profile aligns with the aggregate cluster labeled: {arch.get('label', req.archetype_id)} ({arch.get('description', '')})
+Historically associated sports for this body-type cluster: {', '.join(arch.get('olympic_sports', [])[:4])}
+Paralympic sport alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
+IMPORTANT: Use conditional phrasing only — e.g., "athletes with similar builds have historically tended to..."
+Do NOT name or profile any specific athlete. Do NOT imply this user's performance will match any individual.
 """
 
     # Phase 1: agent runs (tools complete, grounded answer ready)
@@ -484,3 +576,15 @@ Paralympic alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@app.websocket("/api/voice-chat-live")
+async def voice_chat_live(websocket: WebSocket):
+    await websocket.accept()
+    # Feature: pass user archetype context to the live session
+    archetype_id = websocket.query_params.get("archetype_id")
+    from agents.olympic_agent import handle_live_session
+    try:
+        await handle_live_session(websocket, archetype_id=archetype_id)
+    except WebSocketDisconnect:
+        print(f"Live API WebSocket disconnected (archetype: {archetype_id})")

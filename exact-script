@@ -1,0 +1,46 @@
+Welcome to the Team USA Digital Mirror.
+With the Los Angeles 2028 Olympics on the horizon, we wanted to build something that doesn't just show Olympic history, but lets fans feel like a part of it.
+
+Instead of a static dashboard, we built an immersive, AI-driven hub powered entirely by Google Cloud and the Gemini API.
+At the center of our premium, editorial design system are four distinct pathways into the games.
+
+
+First, the Spatial Olympic Timeline.
+We wanted the interaction to feel like the future.
+Using Google's MediaPipe, you don't even need a mouse.
+You simply point your hand...
+...and air double-tap to explore 120 years of host city data on an interactive 3D globe.
+
+
+But data alone isn't a story. That's where our AI Roster Agent comes in.
+By selecting a city, we seamlessly transition into a contextual conversation with Gemini.
+
+We didn't just wrap an API. This is an autonomous agent built on FastAPI that has real-time access to a massive Kaggle dataset of historical Olympic results.
+It dynamically queries SQL in the background to give you exact medal counts, legendary athlete stories, and historical context.
+
+And to make it engaging, we added ultra-low-latency Text-to-Speech. You can literally have an audible conversation with Olympic history.
+
+
+Next, we make the data deeply personal with Team USA Olympic Archetypes.
+By entering your height, weight, and age, our backend runs a K-Means clustering algorithm against over 8,000 historical Team USA biometric records spanning a century.
+
+The system places you into one of 6 distinct Olympic Archetypes—like the 'Aerobic Engine' or the 'Powerhouse'.
+Gemini then uses this specific persona as a system prompt, tailoring the entire chat experience to your unique 'Olympic DNA'.
+
+
+Finally, to ensure equal representation, we built the Paralympic Deep-Dive.
+We recognized a massive gap in how Paralympic classification is understood.
+Using Gemini, this feature instantly generates structured analysis on complex IPC classification systems, matching functional impairment profiles against Team USA's historic legacy, making Paralympic sports more accessible to fans than ever before.
+
+
+Under the hood, this is a masterclass in modern web architecture.
+
+- The frontend is a Next.js application leveraging Three.js for 3D rendering and Framer Motion for premium, liquid-glass animations.
+- The backend is a lightning-fast FastAPI Python server.
+- The intelligence is driven by the Gemini API, orchestrating SQL tools for precise data retrieval.
+- And the entire stack is containerized and deployed effortlessly on Google Cloud Run, ensuring it scales globally for millions of fans.
+
+
+As we look towards LA 2028, the Team USA Digital Mirror proves that with Google Cloud and Gemini, we can transform passive viewers into active participants in Olympic and Paralympic history.
+
+Thank you to the judges for your time, and we'll see you in Los Angeles.

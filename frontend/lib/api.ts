@@ -151,3 +151,21 @@ export async function sendChatStream(
 
   onDone(collected.join(" "));
 }
+
+export async function fetchParaClassificationExplainer(
+  archetype_id: string,
+  sport?: string,
+  user_height_cm?: number,
+  user_weight_kg?: number,
+): Promise<{ explainer: string; archetype: ArchetypeProfile }> {
+  return fetch(`${API}/api/para-classification-explainer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      archetype_id,
+      sport: sport ?? "",
+      user_height_cm: user_height_cm ?? 0,
+      user_weight_kg: user_weight_kg ?? 0,
+    }),
+  }).then(r => r.json());
+}

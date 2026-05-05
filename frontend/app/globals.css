@@ -109,3 +109,53 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
   50%       { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
 }
+
+/* ── Mobile responsiveness ──────────────────────────────────────────── */
+
+/* Prevent horizontal overflow on all children */
+*, *::before, *::after { box-sizing: border-box; }
+
+@media (max-width: 640px) {
+  /* Global padding tightening */
+  section { padding-left: 14px !important; padding-right: 14px !important; }
+
+  /* Hero */
+  h1 { letter-spacing: -0.5px !important; }
+
+  /* Stat ticker cards: shrink min-width so 2 fit per row */
+  [style*="minWidth: 120"] { min-width: 0 !important; flex: 1 1 calc(50% - 12px) !important; }
+
+  /* ChatPanel: wrap the header row on tiny screens */
+  .chat-header { flex-wrap: wrap !important; gap: 8px !important; }
+
+  /* ChatPanel: reduce chat bubble max-width */
+  [style*="maxWidth: \"85%\""] { max-width: 92% !important; }
+
+  /* Modal: make it full-width with smaller padding */
+  [style*="maxWidth: 640"] { width: calc(100vw - 28px) !important; max-width: none !important; }
+  [style*="padding: \"32px 0 0 0\""] { padding: 20px 0 0 0 !important; }
+
+  /* InputSection max-width on small screens */
+  [style*="maxWidth: 640"] { padding-left: 14px !important; padding-right: 14px !important; }
+
+  /* Archetype grid — 2 cols on mobile (handled via auto-fill in components, but ensure min) */
+  [style*="gridTemplateColumns: \"repeat(3"] { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Globe section title sizes */
+  [style*="fontSize: \"clamp(28"] { font-size: clamp(22px, 7vw, 36px) !important; }
+
+  /* API docs hero */
+  [style*="fontSize: \"clamp(36px,6vw,72px)\""] { font-size: clamp(28px, 9vw, 48px) !important; }
+}
+
+@media (max-width: 480px) {
+  /* Stack the ChatPanel voice button label on very small screens */
+  .voice-btn-label { display: none !important; }
+
+  /* Tight section padding */
+  section { padding-left: 10px !important; padding-right: 10px !important; }
+
+  /* Ensure cards never overflow */
+  [style*="borderRadius: 24"] { border-radius: 16px !important; }
+  [style*="borderRadius: 20"] { border-radius: 14px !important; }
+}

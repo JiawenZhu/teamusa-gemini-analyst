@@ -16,7 +16,8 @@ export function makeGestureState(): GestureState {
 }
 
 interface Landmark { x: number; y: number; z: number }
-function dist2D(a: Landmark, b: Landmark) { return Math.hypot(a.x - b.x, a.y - b.y); }
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _dist2D(a: Landmark, b: Landmark) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function dist3D(a: Landmark, b: Landmark) { return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z); }
 
 // Orientation-invariant finger extension check
@@ -31,16 +32,18 @@ interface Props {
   onCitySelect: (c: OlympicCity) => void;
   active: boolean;
   hoveredCity: OlympicCity | null;
+  onCloseSideBar?: () => void;
 }
 
-export default function HandGestureOverlay({ gestureRef, hoveredCityRef, onCitySelect, active, hoveredCity }: Props) {
+export default function HandGestureOverlay({ gestureRef, hoveredCityRef, onCitySelect, active, hoveredCity, onCloseSideBar }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState('');
   const [gesture, setGesture] = useState('');
 
-  const prevPinch = useRef<number | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _prevPinch = useRef<number | null>(null);
   const prevWristX = useRef<number | null>(null);
   const prevWristY = useRef<number | null>(null);
   const pinchAnchorY = useRef<number | null>(null);
@@ -87,14 +90,25 @@ export default function HandGestureOverlay({ gestureRef, hoveredCityRef, onCityS
     }
     prevWristY.current = wristY;
 
-    // ── Pinch → Single Air Tap (Select City)
-    if (pinchRatio < 0.35) { // 0.35 is a good scale-invariant threshold
-      // We don't need a double tap anymore. A single pinch acts as a click.
-      // But we use tapTimers to prevent spam-clicking every frame
+    // ── Rock (Closed Fist) → Close Sidebar
+    // This MUST go before Pinch to prevent a tight fist from registering as a Pinch
+    if (!indexUp && !middleUp && !ringUp && !pinkyUp) {
+      g.pointerNorm = null;
+      setGesture('✊ Rock (Close)');
       const now = Date.now();
       if (tapTimers.current.length === 0 || now - tapTimers.current[0] > 1000) {
         tapTimers.current = [now];
-        g.doubleTap = true; // Still using the same property to trigger selection in FullscreenGlobe
+        if (onCloseSideBar) onCloseSideBar();
+      }
+      return;
+    }
+
+    // ── Pinch → Single Air Tap (Select City)
+    if (pinchRatio < 0.35) {
+      const now = Date.now();
+      if (tapTimers.current.length === 0 || now - tapTimers.current[0] > 1000) {
+        tapTimers.current = [now];
+        g.doubleTap = true;
         if (hoveredCityRef.current) onCitySelect(hoveredCityRef.current);
       }
       
@@ -159,6 +173,27 @@ export default function HandGestureOverlay({ gestureRef, hoveredCityRef, onCityS
     setGesture('');
   }, [gestureRef, hoveredCityRef, onCitySelect]);
 
+  // drawSkeleton must be declared before the useEffect that calls it
+  function drawSkeleton(lm: Landmark[]) {
+    const c = canvasRef.current; if (!c) return;
+    const ctx = c.getContext('2d'); if (!ctx) return;
+    ctx.clearRect(0, 0, c.width, c.height);
+    const CONN = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [0, 9], [9, 10], [10, 11], [11, 12],
+    [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20], [5, 9], [9, 13], [13, 17]];
+    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2;
+    for (const [a, b] of CONN) {
+      ctx.beginPath();
+      ctx.moveTo((1 - lm[a].x) * c.width, lm[a].y * c.height);
+      ctx.lineTo((1 - lm[b].x) * c.width, lm[b].y * c.height);
+      ctx.stroke();
+    }
+    for (const p of lm) {
+      ctx.beginPath();
+      ctx.arc((1 - p.x) * c.width, p.y * c.height, 4, 0, Math.PI * 2);
+      ctx.fillStyle = '#60a5fa'; ctx.fill();
+    }
+  }
+
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -215,29 +250,10 @@ export default function HandGestureOverlay({ gestureRef, hoveredCityRef, onCityS
       (landmarkerRef.current as any)?.close?.();
       landmarkerRef.current = null;
       setReady(false); setStatus(''); setGesture('');
-      if (gestureRef.current) Object.assign(gestureRef.current, makeGestureState());
+      const gs = gestureRef.current;
+      if (gs) Object.assign(gs, makeGestureState());
     };
   }, [active, classify, gestureRef]);
-
-  function drawSkeleton(lm: Landmark[]) {
-    const c = canvasRef.current; if (!c) return;
-    const ctx = c.getContext('2d'); if (!ctx) return;
-    ctx.clearRect(0, 0, c.width, c.height);
-    const CONN = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [0, 9], [9, 10], [10, 11], [11, 12],
-    [0, 13], [13, 14], [14, 15], [15, 16], [0, 17], [17, 18], [18, 19], [19, 20], [5, 9], [9, 13], [13, 17]];
-    ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2;
-    for (const [a, b] of CONN) {
-      ctx.beginPath();
-      ctx.moveTo((1 - lm[a].x) * c.width, lm[a].y * c.height);
-      ctx.lineTo((1 - lm[b].x) * c.width, lm[b].y * c.height);
-      ctx.stroke();
-    }
-    for (const p of lm) {
-      ctx.beginPath();
-      ctx.arc((1 - p.x) * c.width, p.y * c.height, 4, 0, Math.PI * 2);
-      ctx.fillStyle = '#60a5fa'; ctx.fill();
-    }
-  }
 
   if (!active) return null;
 
@@ -270,6 +286,7 @@ export default function HandGestureOverlay({ gestureRef, hoveredCityRef, onCityS
         <div>🤏 Pinch — select city</div>
         <div>✋ Palm — move & zoom</div>
         <div>✌️ Victory — next city</div>
+        <div>✊ Rock — close panel</div>
       </div>
     </div>
   );

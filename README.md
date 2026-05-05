@@ -32,6 +32,7 @@
 | **🌍 3D Interactive Globe** | NASA-textured Earth with atmosphere glow, starfield, sonar city markers, and animated flight arcs — built with Three.js + react-three-fiber |
 | **🤖 Gemini AI Analyst** | Real function-calling agent with 10 tools that query a live 271k-row PostgreSQL database. Never hallucinates — all answers are grounded in data. |
 | **🎤 Voice Assistant** | Full voice I/O — speak your question, hear the answer via browser-native Web Speech API (SpeechSynthesis + SpeechRecognition) |
+| **🖐️ Hand Gesture Control** | Uses MediaPipe to detect gestures via webcam. Point to hover, pinch to select, open palm to rotate/zoom, and rock to close panels. |
 | **🔗 Shareable Links** | `?h=175&w=70&age=25` URL params auto-run the match and show a shared-result banner |
 | **🗺️ Globe City Control** | Gemini automatically flies the globe to any Olympic host city mentioned in the conversation |
 | **📍 LA 2028 Distance Tracker** | Geocodes your city and calculates the great-circle distance to the Coliseum in Los Angeles |
@@ -52,7 +53,7 @@
               │   - Biometric input + archetype UI  │
               │   - Gemini chat panel               │
               │   - Olympic/Paralympic toggle       │
-              │   - Voice TTS (browser native)      │
+              │   - Voice TTS & MediaPipe Gestures  │
               └──────────────┬─────────────────────┘
                              │  REST + SSE
               ┌──────────────▼─────────────────────┐
@@ -74,7 +75,10 @@
 
 ### Olympic & Paralympic Models
 
-Both models use the same source CSV ([rgriff23/Olympic_history](https://github.com/rgriff23/Olympic_history), MIT License) filtered differently and clustered separately:
+Both models use the famous [120 Years of Olympic History Kaggle Dataset](https://www.kaggle.com/datasets/heesoo37/120-years-of-olympic-history-athletes-and-results) (271,116 rows), which was originally scraped from Sports-Reference. The data is filtered and clustered separately:
+
+> [!NOTE]
+> **Data Discrepancy Disclaimer:** Because this dataset preserves the original historical records from Sports-Reference, you may notice minor discrepancies compared to modern IOC databases. For example, in the chaotic 1900 Paris Games, this dataset contains 32 women (9 from Team USA) while the modern IOC retroactively recognizes only 22. This is because the IOC later "de-certified" many 1900 events, but this dataset preserves the broader, more inclusive historical record of everyone who competed!
 
 | Model | Athletes | Archetypes |
 |---|---|---|
@@ -155,10 +159,14 @@ Open **https://teamusa-8b1ba.web.app** and follow these steps:
 - ✅ Expect: a distinct `para_*` archetype is returned (e.g., "Para Endurance Engine")
 
 #### 3. AI Analyst (Gemini Chat)
-- Type: `"Which city has hosted the most Olympics?"`
-- ✅ Expect: a grounded, data-backed answer (function-calling against the 271k-row DB)
-- Type: `"Tell me about the 2000 Sydney Olympics"`
-- ✅ Expect: the 3D globe **automatically rotates to Sydney, Australia**
+- Type: `"Which Team USA sports have the tallest average athletes, and how has that changed over time?"`
+- ✅ Expect: Gemini dynamically queries the historical data to calculate average height by sport and era.
+- Type: `"For Team USA, does BMI correlate more strongly with medal success in strength sports or endurance sports?"`
+- ✅ Expect: Gemini analyzes BMI distribution among medalists in different sports using its SQL tools.
+- Type: `"How have Team USA women’s participation rates changed across Summer Olympic history?"`
+- ✅ Expect: Gemini calculates the gender breakdown over time to show the historical trend.
+- Type: `"What is the average age of Team USA medalists by sport, and which sports favor younger or older athletes?"`
+- ✅ Expect: Gemini queries age distribution stats to provide a data-backed comparison across sports.
 
 #### 4. Globe Auto-Fly
 - The globe should animate to any Olympic host city Gemini mentions — no button click needed
@@ -176,6 +184,20 @@ Open **https://teamusa-8b1ba.web.app** and follow these steps:
 - After matching, copy the URL — it should contain `?h=178&w=72&age=25`
 - Open the URL in a new private/incognito tab
 - ✅ Expect: the archetype result auto-loads without re-entering biometrics
+
+#### 8. Hand Gesture Control (MediaPipe)
+Ensure your webcam is active and permissions are granted. Test the following gestures:
+- **Point (Index Finger Up)**: Moves the glowing cursor over the globe to hover over cities.
+- **Air Tap (Pinch)**: Pinch your index and thumb together while hovering over a city to select it.
+- **3D Control (Open Palm)**: Swipe your open hand to rotate the globe, or move your hand closer/further to zoom in/out.
+- **Rock (Closed Fist)**: Automatically closes the right-side chat panel.
+- **Victory Sign (Index & Middle Up)**: Cycles to the next available city.
+- ✅ Expect: The globe and UI to respond fluidly to your physical gestures without needing a mouse or keyboard.
+
+#### 9. Mobile Responsiveness
+- Resize your browser window to a mobile width (or open on a mobile device).
+- Enter a long, multi-line question into the chat input.
+- ✅ Expect: the chat input text stacks properly when one line is full, and all archetype cards/UI elements scale without horizontal scrolling.
 
 ### Verifying the API Directly
 

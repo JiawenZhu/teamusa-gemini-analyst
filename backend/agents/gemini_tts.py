@@ -121,15 +121,14 @@ async def synthesize_text_to_wav_b64(text: str) -> Optional[str]:
     Full pipeline: clean → chunk → synthesize (with retry) → WAV → base64.
     Returns a base64-encoded WAV string, or None if synthesis failed.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key or not text.strip():
+    if not text.strip():
         return None
 
     cleaned = _clean(text)
     if not cleaned:
         return None
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(vertexai=True, project="teamusa-8b1ba", location="global")
     chunks  = _split_chunks(cleaned)
 
     pcm_parts: list[bytes] = []
@@ -151,15 +150,14 @@ async def synthesize_sentence_to_wav_b64(sentence: str) -> Optional[str]:
     Synthesize a single pre-chunked sentence → base64 WAV.
     Used by /api/chat-stream to start playing the first sentence immediately.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key or not sentence.strip():
+    if not sentence.strip():
         return None
 
     cleaned = _clean(sentence)
     if not cleaned:
         return None
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(vertexai=True, project="teamusa-8b1ba", location="global")
     pcm = await _synthesize_chunk(client, cleaned)
     if not pcm:
         return None

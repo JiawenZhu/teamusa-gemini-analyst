@@ -91,15 +91,14 @@ def get_custom_sql_data(sql: str):
 
     MEDAL COUNTING RULE: Always add WHERE medal IS NOT NULL when counting medals.
     YEAR RANGE RULE: Use BETWEEN or >= / <= for year ranges, e.g. year BETWEEN 2008 AND 2012.
-    NAME SEARCH RULE: Split first/last name with AND ILIKE, e.g.:
-        WHERE name ILIKE '%Kobe%' AND name ILIKE '%Bryant%'
+    AGGREGATE ONLY: Queries must return aggregate statistics (counts, averages, totals).
+    Do NOT write queries that SELECT individual athlete names or personal profiles.
 
     Examples:
       SELECT COUNT(*) FROM v_results_full WHERE noc='USA' AND year=2012 AND medal IS NOT NULL
       SELECT COUNT(*) FROM v_results_full WHERE noc='USA' AND year BETWEEN 2008 AND 2012 AND medal IS NOT NULL
-      SELECT name, sport, year, medal FROM v_results_full WHERE name ILIKE '%Kobe%' AND name ILIKE '%Bryant%'
-      SELECT name, COUNT(*) as golds FROM v_results_full WHERE medal='Gold' AND noc='USA' GROUP BY name ORDER BY golds DESC LIMIT 10
       SELECT sport, COUNT(*) as medals FROM v_results_full WHERE noc='USA' AND medal IS NOT NULL GROUP BY sport ORDER BY medals DESC LIMIT 5
+      SELECT year, COUNT(*) as golds FROM v_results_full WHERE medal='Gold' AND noc='USA' GROUP BY year ORDER BY year
     """
     return queries.execute_dynamic_query(sql)
 
@@ -154,7 +153,15 @@ TOOLS = [
 ]
 
 
-SYSTEM_PROMPT = """You are the Team USA Gemini Analyst — a precise, data-driven AI analyst with access to a real Olympic database containing 271,116 rows of verified historical records.
+SYSTEM_PROMPT = """You are the Team USA Gemini Analyst — a precise, data-driven AI analyst with access to a real Olympic database containing 271,116 rows of verified historical records (1896–2016 Summer Olympic Games, public Kaggle dataset).
+
+═══ PRIVACY & ATTRIBUTION RULES (HIGHEST PRIORITY — NEVER OVERRIDE) ═══
+
+• NO INDIVIDUAL ATHLETES: Never name, profile, quote, or describe any specific living or deceased athlete. Do not reference personal biometrics, finish times, specific scores, or individual career histories.
+• AGGREGATE ONLY: Refer exclusively to aggregate Team USA records, era-level patterns, sport-level statistics, and anonymized historical trends.
+• NO LIKENESSES: Do not describe an athlete's appearance, style, or personal story.
+• DATA WINDOW: This dataset covers Summer Olympic Games through the 2016 Rio Games. If asked about 2020, 2024, or 2028, clearly state: "Our records go up to the 2016 Rio Games — we don't have data for that period yet."
+• CONDITIONAL LANGUAGE: When connecting user biometrics to historical patterns, always use conditional phrasing: "athletes with similar builds have historically tended to…" not "you are exactly like…" or "legends share your build."
 
 ═══ YOUR THINKING PROCESS ═══
 For EVERY question, follow this exact sequence:
@@ -199,10 +206,11 @@ For EVERY question, follow this exact sequence:
      OR use get_custom_sql_data: "... AND year BETWEEN 2008 AND 2012 AND medal IS NOT NULL"
    • "From 2008 to 2012" means INCLUSIVE of both 2008 and 2012 Games.
 
-4. ATHLETE NAME SEARCHES — always split first + last name:
-   • "LeBron James" → WHERE name ILIKE '%LeBron%' AND name ILIKE '%James%'
-   • "Kobe Bryant" → WHERE name ILIKE '%Kobe%' AND name ILIKE '%Bryant%'
-   • Reason: athletes have middle names stored (e.g., "LeBron Raymone James").
+4. AGGREGATE-ONLY QUERIES — never select individual athlete rows:
+   • Do NOT run queries that return specific athlete names, personal biometrics, or individual results.
+   • All SQL must return aggregated data: COUNT, AVG, SUM, GROUP BY, etc.
+   • If the user asks about a named athlete, decline politely and offer aggregate data instead:
+     "I can't provide individual athlete profiles, but I can tell you how Team USA performed in [sport] in [year] overall."
 
 5. EMPTY RESULTS: If a tool returns 0 rows or empty, report that honestly:
    "Our dataset has no records for [X]." Do NOT hallucinate or guess.
@@ -247,11 +255,7 @@ USA filter: noc = 'USA'
 
 
 def ask_gemini(question: str, context: str = "", history: list = None):
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        return "Error: GEMINI_API_KEY not found.", None
-
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(vertexai=True, project="teamusa-8b1ba", location="global")
 
     final_system_prompt = SYSTEM_PROMPT
     if context:
@@ -315,3 +319,352 @@ def ask_gemini(question: str, context: str = "", history: list = None):
     except Exception as e:
         return f"Error communicating with Gemini: {str(e)}", None
 
+import asyncio
+import json
+
+async def handle_live_session(websocket, archetype_id: str = None):
+
+    # Feature: Sync context with text chat
+    from data.public_data import get_all_archetypes
+    archs = {a["id"]: a for a in get_all_archetypes()}
+    arch = archs.get(archetype_id, {})
+    
+    live_system_instruction = SYSTEM_PROMPT
+    if arch:
+        context = f"""
+--- USER BIOMETRIC CONTEXT (Sync with Text Chat) ---
+The user's biometric profile aligns with: {arch.get('label', archetype_id)} ({arch.get('description', '')})
+Historically associated sports: {', '.join(arch.get('olympic_sports', [])[:4])}
+Paralympic sport alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
+Always use conditional phrasing.
+"""
+        live_system_instruction += context
+
+    # v1beta1 is required for gemini-3.1-flash-live-preview
+    client = genai.Client(
+        vertexai=True, project="teamusa-8b1ba", location="us-central1",
+        http_options={"api_version": "v1beta1"},
+    )
+
+    config = types.LiveConnectConfig(
+        system_instruction=types.Content(parts=[types.Part.from_text(text=live_system_instruction)]),
+        tools=TOOLS,
+        response_modalities=["AUDIO"],
+        speech_config=types.SpeechConfig(
+            voice_config=types.VoiceConfig(
+                prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Aoede")
+            )
+        ),
+        # Enable input transcription so we can intercept user speech and route
+        # analytical questions through the SQL-backed ask_gemini engine.
+        input_audio_transcription=types.AudioTranscriptionConfig(),
+        # Enable output transcription so we can show the agent's spoken words
+        # as text in the glassmorphism chat overlay.
+        output_audio_transcription=types.AudioTranscriptionConfig(),
+    )
+
+    try:
+        # The frontend used gemini-live-2.5-flash-native-audio
+        target_model = "gemini-live-2.5-flash-native-audio"
+        async with client.aio.live.connect(model=target_model, config=config) as session:
+            print(f"Connected to Gemini Live API ({target_model})")
+            await websocket.send_json({"type": "status", "message": "connected"})
+
+            audio_input_queue = asyncio.Queue()
+            text_input_queue = asyncio.Queue()
+
+            # ── Task 1: Receive from browser WebSocket ─────────────────────────
+            async def receive_from_client():
+                audio_chunks_received = 0
+                try:
+                    while True:
+                        message = await websocket.receive()
+
+                        if message["type"] == "websocket.disconnect":
+                            print(f"Client disconnected")
+                            break
+
+                        if message.get("bytes"):
+                            data = message["bytes"]
+                            audio_chunks_received += 1
+                            if audio_chunks_received % 100 == 1:
+                                import struct
+                                samples = struct.unpack(f"<{len(data)//2}h", data[:(len(data)//2)*2])
+                                max_amp = max(abs(s) for s in samples) if samples else 0
+                                print(f"[Audio chunk #{audio_chunks_received}]: {len(data)}B max_amp={max_amp}")
+                            await audio_input_queue.put(data)
+
+                        elif message.get("text"):
+                            try:
+                                payload = json.loads(message["text"])
+                                msg_type = payload.get("type")
+                                if msg_type == "text_query":
+                                    text = payload.get("text", "").strip()
+                                    if text:
+                                        print(f"[Client text]: {text}")
+                                        await text_input_queue.put(text)
+                            except json.JSONDecodeError:
+                                pass
+                except Exception as e:
+                    print(f"receive_from_client error: {e}")
+                finally:
+                    await audio_input_queue.put(None)
+                    await text_input_queue.put(None)
+
+            # ── Task 2: Forward browser audio → Gemini ─────────────────────────
+            async def send_audio_to_gemini():
+                try:
+                    # Kick off conversation with a text greeting
+                    print("Sending initial greeting...")
+                    await session.send_client_content(
+                        turns=types.Content(
+                            role="user",
+                            parts=[types.Part.from_text(text="Hello! Please greet the user and offer to help with Olympic history or globe navigation.")]
+                        ),
+                        turn_complete=True
+                    )
+                    print("Initial greeting sent.")
+
+                    while True:
+                        data = await audio_input_queue.get()
+                        if data is None:
+                            break
+                        try:
+                            # mime_type must be plain "audio/pcm" (no rate suffix)
+                            await session.send_realtime_input(
+                                media=types.Blob(data=data, mime_type="audio/pcm")
+                            )
+                        except Exception as e:
+                            print(f"send_audio error: {e}")
+                except Exception as e:
+                    print(f"send_audio_to_gemini fatal: {e}")
+                    import traceback; traceback.print_exc()
+
+            # ── Task 3: Forward text queries → Gemini ──────────────────────────
+            async def send_text_to_gemini():
+                try:
+                    while True:
+                        text = await text_input_queue.get()
+                        if text is None:
+                            break
+                        try:
+                            await session.send_client_content(
+                                turns=types.Content(
+                                    role="user",
+                                    parts=[types.Part.from_text(text=text)]
+                                ),
+                                turn_complete=True
+                            )
+                        except Exception as e:
+                            print(f"send_text error: {e}")
+                except Exception as e:
+                    print(f"send_text_to_gemini fatal: {e}")
+
+            # ── Task 4: Receive Gemini responses → browser ─────────────────────
+            # HYBRID ARCHITECTURE:
+            # The live audio model is great for voice I/O but does not reliably
+            # invoke SQL function calls for complex analytical questions.
+            # Fix: enable input_audio_transcription so we get the user's spoken words
+            # as text. When a full user turn is transcribed, we run it through
+            # ask_gemini() (the SQL-backed chat engine) in a thread, then inject
+            # the DB-grounded answer back into the live session so Gemini speaks it.
+            async def receive_from_gemini():
+                chunk_count = 0
+                pending_transcript: list = []  # accumulate transcript fragments
+                db_inject_lock = asyncio.Lock()
+                db_tasks: set[asyncio.Task] = set()  # track background inject tasks
+
+                async def run_db_and_inject(question: str):
+                    """Run the real SQL engine and inject the grounded answer."""
+                    async with db_inject_lock:
+                        print(f"[DB hybrid] SQL query for: {question!r}")
+                        loop = asyncio.get_event_loop()
+                        try:
+                            answer, map_trigger = await loop.run_in_executor(
+                                None, lambda: ask_gemini(question, context="", history=[])
+                            )
+                        except Exception as e:
+                            answer = f"I'm sorry, I had trouble looking that up. {e}"
+                            map_trigger = None
+
+                        print(f"[DB hybrid] Answer ({len(answer)} chars): {answer[:120]}...")
+
+                        # Send map trigger to browser
+                        if map_trigger and map_trigger.get("lat"):
+                            try:
+                                await websocket.send_json({
+                                    "type": "map_trigger",
+                                    "city": map_trigger["city"],
+                                    "lat": map_trigger["lat"],
+                                    "lng": map_trigger["lng"],
+                                })
+                            except Exception:
+                                pass
+
+                        # Send text to browser for display
+                        try:
+                            await websocket.send_json({"type": "live_text", "text": answer})
+                        except RuntimeError as e:
+                            if "Unexpected ASGI message" in str(e):
+                                return  # Client disconnected
+                            pass
+                        except Exception:
+                            pass
+
+                        # Inject the DB answer back so Gemini speaks it
+                        inject_prompt = (
+                            f"The database returned this verified answer for '{question}':\n\n"
+                            f"{answer}\n\n"
+                            f"Please read this to the user naturally. "
+                            f"Do not add information beyond what is above."
+                        )
+                        try:
+                            await session.send_client_content(
+                                turns=types.Content(
+                                    role="user",
+                                    parts=[types.Part.from_text(text=inject_prompt)]
+                                ),
+                                turn_complete=True,
+                            )
+                        except Exception as e:
+                            print(f"[DB hybrid] inject error: {e}")
+
+                try:
+                    while True:
+                        async for response in session.receive():
+                            sc = response.server_content
+
+                            # ── Output transcript: what the agent is saying ────────
+                            if sc and getattr(sc, "output_transcription", None):
+                                agent_text = getattr(sc.output_transcription, "text", "") or ""
+                                if agent_text.strip():
+                                    print(f"[Agent transcript]: {agent_text!r}")
+                                    try:
+                                        await websocket.send_json({"type": "live_text", "text": agent_text})
+                                    except RuntimeError:
+                                        return  # Client disconnected
+
+                            # ── Input transcript: what the user said ───────────────
+                            if sc and getattr(sc, "input_transcription", None):
+                                transcript_text = getattr(sc.input_transcription, "text", "") or ""
+                                if transcript_text.strip():
+                                    pending_transcript.append(transcript_text)
+                                    print(f"[User transcript]: {transcript_text!r}")
+
+                            # Full user turn transcribed → route through DB
+                            if sc and getattr(sc, "input_transcription_complete", False):
+                                full_question = " ".join(pending_transcript).strip()
+                                pending_transcript.clear()
+                                if full_question:
+                                    print(f"[User said (complete)]: {full_question!r}")
+                                    # Send user speech to browser for display in chat overlay
+                                    try:
+                                        await websocket.send_json({"type": "user_text", "text": full_question})
+                                    except RuntimeError:
+                                        return
+                                    task = asyncio.create_task(run_db_and_inject(full_question))
+                                    db_tasks.add(task)
+                                    task.add_done_callback(db_tasks.discard)
+
+                            # ── Audio output from Gemini → browser ─────────────────
+                            if sc and sc.model_turn:
+                                for part in sc.model_turn.parts:
+                                    if part.inline_data and part.inline_data.data:
+                                        chunk_count += 1
+                                        if chunk_count <= 5:
+                                            print(f"[Gemini audio #{chunk_count}]: {len(part.inline_data.data)}B")
+                                        try:
+                                            await websocket.send_bytes(part.inline_data.data)
+                                        except RuntimeError as e:
+                                            if "Unexpected ASGI message" in str(e):
+                                                break # Client disconnected
+                                    if part.text:
+                                        print(f"[Gemini text]: {part.text}")
+                                        try:
+                                            await websocket.send_json({"type": "live_text", "text": part.text})
+                                        except RuntimeError as e:
+                                            if "Unexpected ASGI message" in str(e):
+                                                break # Client disconnected
+
+                            if sc and sc.turn_complete:
+                                print("[Gemini] Turn complete.")
+
+                            # ── Tool calls (map nav + any direct DB calls) ──────────
+                            if response.tool_call:
+                                fn_responses = []
+                                for func_call in response.tool_call.function_calls:
+                                    name = func_call.name
+                                    args = dict(func_call.args) if func_call.args else {}
+                                    print(f"Live tool: {name}({args})")
+                                    func = next((t for t in TOOLS if getattr(t, '__name__', None) == name), None)
+                                    if func:
+                                        try:
+                                            result = func(**args) if args else func()
+                                            if name == "trigger_map_view" and isinstance(result, dict) and result.get("triggered"):
+                                                await websocket.send_json({
+                                                    "type": "map_trigger",
+                                                    "city": result.get("city"),
+                                                    "lat": result.get("lat"),
+                                                    "lng": result.get("lng"),
+                                                })
+                                            fn_responses.append(types.FunctionResponse(
+                                                name=name,
+                                                id=func_call.id,
+                                                response={"result": result},
+                                            ))
+                                        except Exception as tool_err:
+                                            fn_responses.append(types.FunctionResponse(
+                                                name=name,
+                                                id=func_call.id,
+                                                response={"error": str(tool_err)},
+                                            ))
+                                if fn_responses:
+                                    await session.send_tool_response(function_responses=fn_responses)
+                except asyncio.CancelledError:
+                    # Normal shutdown when tasks are cancelled
+                    pass
+                except RuntimeError as e:
+                    # "Unexpected ASGI message" means client already closed — not an error
+                    if "Unexpected ASGI message" not in str(e):
+                        import traceback
+                        with open("ws_debug.log", "a") as f:
+                            f.write(f"receive_from_gemini error: {e}\n{traceback.format_exc()}\n")
+                        print(f"receive_from_gemini error: {e}")
+                except Exception as e:
+                    err_str = str(e)
+                    # Treat clean Gemini 1000 'operation cancelled' as graceful close
+                    if "1000" in err_str and "operation was cancelled" in err_str.lower():
+                        print("[Gemini] Session ended cleanly (1000).")
+                        return
+                    import traceback
+                    with open("ws_debug.log", "a") as f:
+                        f.write(f"receive_from_gemini error: {e}\n{traceback.format_exc()}\n")
+                    print(f"receive_from_gemini error: {e}")
+                    traceback.print_exc()
+
+            # Run all tasks concurrently — receive_from_gemini blocks the main coroutine
+            receive_task = asyncio.create_task(receive_from_client())
+            send_audio_task = asyncio.create_task(send_audio_to_gemini())
+            send_text_task = asyncio.create_task(send_text_to_gemini())
+
+            try:
+                await receive_from_gemini()
+            finally:
+                receive_task.cancel()
+                send_audio_task.cancel()
+                send_text_task.cancel()
+                # Cancel any still-running DB inject tasks so uvicorn can restart cleanly
+                for t in list(db_tasks):
+                    t.cancel()
+                print("[Session] All tasks cancelled.")
+
+    except Exception as e:
+        import traceback
+        with open("ws_debug.log", "a") as f:
+            f.write(f"Live API error: {type(e).__name__}: {e}\n{traceback.format_exc()}\n")
+        print(f"Live API error: {type(e).__name__}: {e}")
+        traceback.print_exc()
+        try:
+            await websocket.close(code=1011)
+        except Exception:
+            pass

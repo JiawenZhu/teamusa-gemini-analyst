@@ -30,7 +30,7 @@ export function ChatPanel({
   setVoiceEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   stopAudio: () => void;
   isSpeaking: boolean;
-  micState: "idle" | "listening" | "processing";
+  micState: "idle" | "listening" | "processing" | "speaking";
   startListening: () => void;
   stopListening: () => void;
   chatContainerRef: React.RefObject<HTMLDivElement | null>;
@@ -38,7 +38,7 @@ export function ChatPanel({
   if (!result) return null;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: 24, padding: "32px", boxShadow: "0 20px 60px rgba(0,0,0,0.15)" }}>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: 20, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,0.15)", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, width: "100%" }}>
         <div style={{ width: 40, height: 40, borderRadius: "50%", background: `linear-gradient(135deg, ${result.archetype.color}, #0A1628)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 14px ${result.archetype.color}60` }}>
           {isSpeaking ? (
@@ -115,18 +115,35 @@ export function ChatPanel({
       </div>
 
       <div style={{ 
-        display: "flex", alignItems: "center", gap: 12, position: "relative",
-        background: "var(--bg-main)", border: "1px solid var(--border-color)", borderRadius: 99, 
-        padding: "6px 6px 6px 20px", boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
+        display: "flex", alignItems: "flex-end", gap: 10, position: "relative",
+        background: "var(--bg-main)", border: "1px solid var(--border-color)", borderRadius: 20, 
+        padding: "10px 10px 10px 18px", boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
         transition: "border-color 0.2s, box-shadow 0.2s"
       }}
         onFocus={(e) => { e.currentTarget.style.borderColor = result.archetype.color; e.currentTarget.style.boxShadow = `0 8px 32px ${result.archetype.color}20`; }}
         onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border-color)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.05)"; }}
       >
-        <input id="chat-input" value={msg} onChange={e => setMsg(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && doChat()}
-          placeholder={micState === "listening" ? "Listening…" : "Ask Gemini about Olympic history..."}
-          style={{ flex: 1, background: "transparent", border: "none", color: "var(--text-main)", fontSize: 15, outline: "none", fontStyle: micState === "listening" ? "italic" : "normal" }}
+        <textarea
+          id="chat-input"
+          value={msg}
+          rows={1}
+          onChange={e => {
+            setMsg(e.target.value);
+            // Auto-grow: reset height then set to scrollHeight (capped at ~5 lines)
+            e.target.style.height = "auto";
+            e.target.style.height = Math.min(e.target.scrollHeight, 130) + "px";
+          }}
+          onKeyDown={e => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doChat(); }
+          }}
+          placeholder={micState === "listening" ? "Listening…" : "Ask Gemini about Olympic history…"}
+          style={{
+            flex: 1, background: "transparent", border: "none",
+            color: "var(--text-main)", fontSize: 15, outline: "none", resize: "none",
+            lineHeight: 1.55, fontFamily: "inherit", minHeight: 26, maxHeight: 130,
+            overflowY: "auto", padding: 0,
+            fontStyle: micState === "listening" ? "italic" : "normal",
+          }}
         />
         {/* Mic Button */}
         <button
@@ -134,10 +151,8 @@ export function ChatPanel({
           onClick={micState === "listening" ? stopListening : startListening}
           title={micState === "listening" ? "Stop listening" : "Ask Gemini"}
           style={{
-            width: 44, height: 44, borderRadius: "50%",
-            background: micState === "listening"
-              ? "#EF4444"
-              : "var(--border-color)",
+            width: 40, height: 40, borderRadius: "50%",
+            background: micState === "listening" ? "#EF4444" : "var(--border-color)",
             border: micState === "listening" ? "none" : "1px solid var(--border-color)",
             color: micState === "listening" ? "#FFF" : "var(--text-sub)",
             cursor: "pointer", transition: "all 0.2s",
@@ -150,7 +165,7 @@ export function ChatPanel({
         </button>
         <button id="chat-send" onClick={doChat} disabled={chatLoading || !msg.trim()}
           style={{ 
-            width: 44, height: 44, borderRadius: "50%", 
+            width: 40, height: 40, borderRadius: "50%", 
             background: msg.trim() ? `linear-gradient(135deg, ${result.archetype.color}, ${result.archetype.color}DD)` : "var(--border-color)", 
             border: "none", color: "#FFF", 
             cursor: chatLoading || !msg.trim() ? "not-allowed" : "pointer", 

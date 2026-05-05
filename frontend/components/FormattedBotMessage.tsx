@@ -2,7 +2,7 @@
 import { motion } from "framer-motion";
 import { Sparkles, Medal, ChevronRight, User, Trophy, Ruler, Weight } from "lucide-react";
 
-// ─── Flag map ────────────────────────────────────────────────────────────────
+// ─── Flag map ─────────────────────────────────────────────────────────────────
 const FLAG_MAP: Record<string, string> = {
   "USA": "🇺🇸", "United States": "🇺🇸", "GBR": "🇬🇧", "Great Britain": "🇬🇧",
   "GER": "🇩🇪", "Germany": "🇩🇪", "FRA": "🇫🇷", "France": "🇫🇷",
@@ -16,10 +16,13 @@ const FLAG_MAP: Record<string, string> = {
 };
 
 // ─── Inline renderer ──────────────────────────────────────────────────────────
-// FIX 3: stronger text colours passed in
-// FIX 5: **bold** renders as a soft highlight chip, not just <strong>
+// Renders **bold** as a styled chip and *italic* as <em>.
+// All raw ** and ### are consumed here — nothing leaks to the DOM as text.
 function parseInline(text: string, accentColor?: string): React.ReactNode {
-  let t = text;
+  // 1. Strip any residual ### / ## heading markers that slipped into inline text
+  let t = text.replace(/^#{1,4}\s*/gm, "");
+
+  // 2. Inject flags & medal emojis
   Object.entries(FLAG_MAP).forEach(([name, flag]) => {
     t = t.replace(new RegExp(`\\b(${name})\\b`, "g"), `${flag} $1`);
   });
@@ -28,25 +31,20 @@ function parseInline(text: string, accentColor?: string): React.ReactNode {
     .replace(/\b([Ss]ilver [Mm]edal(?:s|ist)?)\b/g, "🥈 $1")
     .replace(/\b([Bb]ronze [Mm]edal(?:s|ist)?)\b/g, "🥉 $1");
 
+  // 3. Split on **bold** and *italic*
   const parts = t.split(/(\*\*.*?\*\*|\*[^*]+?\*)/g);
   return (
     <>
       {parts.map((part, i) => {
         if (part.startsWith("**") && part.endsWith("**")) {
           const inner = part.slice(2, -2);
-          // FIX 5: render as subtle highlight chip
           return (
-            <span
-              key={i}
-              style={{
-                fontWeight: 700,
-                color: accentColor || "#1e293b",
-                background: accentColor ? `${accentColor}18` : "rgba(30,41,59,0.08)",
-                borderRadius: 4,
-                padding: "1px 6px",
-                display: "inline",
-              }}
-            >
+            <span key={i} style={{
+              fontWeight: 700,
+              color: accentColor || "#1e293b",
+              background: accentColor ? `${accentColor}14` : "rgba(30,41,59,0.07)",
+              borderRadius: 4, padding: "1px 5px", display: "inline",
+            }}>
               {inner}
             </span>
           );
@@ -59,48 +57,93 @@ function parseInline(text: string, accentColor?: string): React.ReactNode {
   );
 }
 
-// ─── Numbered section header renderer (FIX 2) ────────────────────────────────
-// Detects "1. Title Text" at the start of a block and renders a pill + heading
-function NumberedHeading({ num, title, rest, color }: { num: string; title: string; rest: string; color: string }) {
+// ─── Section heading (## in Gemini output) ───────────────────────────────────
+function SectionHeading({ content, color }: { content: string; color: string }) {
+  // Strip any leading # chars that sneaked in
+  const clean = content.replace(/^#+\s*/, "");
   return (
-    <div style={{ marginBottom: 4 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-        {/* Numbered badge pill */}
-        <div style={{
-          width: 26, height: 26, borderRadius: "50%",
-          background: color,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexShrink: 0,
-          boxShadow: `0 0 10px ${color}55`,
-        }}>
-          <span style={{ fontSize: 12, fontWeight: 900, color: "#fff" }}>{num}</span>
-        </div>
-        {/* Title — FIX 3: strong contrast */}
-        <h4 style={{
-          margin: 0,
-          fontSize: 16,
-          fontWeight: 800,
-          color: color,
-          letterSpacing: "-0.01em",
-          lineHeight: 1.3,
-        }}>
-          {title}
-        </h4>
-      </div>
-      {/* Body paragraph below the heading */}
-      {rest && (
-        <p style={{
-          margin: 0,
-          paddingLeft: 36,
-          fontSize: 14,
-          lineHeight: 1.75,
-          color: "#1e293b",   // FIX 3: near-black for max contrast
-        }}>
-          {parseInline(rest, color)}
-        </p>
-      )}
+    <div style={{ margin: "6px 0 2px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{
+        width: 3, height: 20, borderRadius: 2,
+        background: `linear-gradient(180deg, ${color}, ${color}44)`,
+        flexShrink: 0,
+      }} />
+      <span style={{
+        fontSize: 15, fontWeight: 800,
+        color: "#0f172a", letterSpacing: "-0.01em",
+      }}>
+        {parseInline(clean, color)}
+      </span>
     </div>
   );
+}
+
+// ─── Modern numbered sport/item card ────────────────────────────────────────
+// Handles Gemini output like: "1. **Swimming:** 19 medals (description). 2. **Athletics:** …"
+// Each numbered item gets a clean card row — no raw ** visible.
+function NumberedSportCard({
+  num, label, detail, color
+}: { num: string; label: string; detail: string; color: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: parseInt(num) * 0.06 }}
+      style={{
+        display: "flex", alignItems: "flex-start", gap: 12,
+        padding: "12px 14px",
+        background: "#ffffff",
+        border: "1px solid #f1f5f9",
+        borderLeft: `3px solid ${color}`,
+        borderRadius: "0 10px 10px 0",
+        boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
+      }}
+    >
+      {/* Rank badge */}
+      <div style={{
+        width: 26, height: 26, borderRadius: "50%",
+        background: color,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, marginTop: 1,
+        boxShadow: `0 2px 8px ${color}44`,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 900, color: "#fff" }}>{num}</span>
+      </div>
+      {/* Content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 2 }}>
+          {label}
+        </div>
+        {detail && (
+          <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
+            {parseInline(detail, color)}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Pre-process: split inline numbered list runs ─────────────────────────────
+// Gemini sometimes outputs "1. **Foo:** desc. 2. **Bar:** desc. 3. …" on a single line.
+// We split these into separate lines so each becomes its own block.
+function splitInlineNumberedList(text: string): string {
+  // Match "N. " that appears mid-sentence (not at start of line), preceded by a period or content
+  return text.replace(/([^\n])(\s+)(\d+\.\s)/g, "$1\n\n$3");
+}
+
+// ─── Parse a block that starts with "N. **Label:** rest" ─────────────────────
+function parseNumberedItem(trimmed: string): { num: string; label: string; detail: string } | null {
+  // "1. **Swimming:** 19 medals (A legendary …)"
+  // "1. Swimming — 19 medals"
+  const m = trimmed.match(/^(\d+)\.\s+(?:\*\*)?([^*:\n]+?)(?:\*\*)?\s*[:\—–-]\s*(.*)/s);
+  if (m) return { num: m[1], label: m[2].trim(), detail: m[3].replace(/\*\*/g, "").trim() };
+
+  // Fallback: "1. Swimming (19 medals …)"
+  const m2 = trimmed.match(/^(\d+)\.\s+([^(\n]+?)\s*\(([^)]*)\)/s);
+  if (m2) return { num: m2[1], label: m2[2].trim(), detail: m2[3].trim() };
+
+  return null;
 }
 
 // ─── Athlete Card ─────────────────────────────────────────────────────────────
@@ -129,12 +172,9 @@ function tryParseAthleteCard(block: string, color: string): React.ReactNode | nu
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       style={{
-        borderRadius: 14,
-        border: `1px solid ${color}30`,
-        background: "#ffffff",
-        overflow: "hidden",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
-        marginTop: 8,
+        borderRadius: 14, border: `1px solid ${color}30`,
+        background: "#ffffff", overflow: "hidden",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.08)", marginTop: 8,
       }}
     >
       <div style={{
@@ -181,11 +221,7 @@ function tryParseAthleteCard(block: string, color: string): React.ReactNode | nu
           </div>
         )}
         {why && (
-          <div style={{
-            padding: "10px 14px", borderRadius: 10,
-            background: `${color}08`,
-            borderLeft: `3px solid ${color}`,
-          }}>
+          <div style={{ padding: "10px 14px", borderRadius: 10, background: `${color}08`, borderLeft: `3px solid ${color}` }}>
             <div style={{ fontSize: 10, fontWeight: 800, color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 5 }}>
               ✨ Why you match
             </div>
@@ -221,7 +257,7 @@ function renderTable(block: string, color: string): React.ReactNode {
         <thead>
           <tr style={{ borderBottom: "2px solid #e2e8f0", background: `linear-gradient(90deg, ${color}10, #f8fafc)` }}>
             {headers.map((h, j) => (
-              <th key={j} style={{ padding: "12px 16px", whiteSpace: "nowrap", fontWeight: 800, color: "#1e293b", position: j === 0 ? "sticky" : "static", left: 0, background: j === 0 ? "#f8fafc" : "transparent", zIndex: j === 0 ? 10 : 1, borderRight: j === 0 ? "1px solid #e2e8f0" : "none" }}>
+              <th key={j} style={{ padding: "12px 16px", whiteSpace: "nowrap", fontWeight: 800, color: "#1e293b" }}>
                 {parseInline(h, color)}
               </th>
             ))}
@@ -231,7 +267,7 @@ function renderTable(block: string, color: string): React.ReactNode {
           {rows.map((row, r) => (
             <tr key={r} style={{ borderBottom: "1px solid #f1f5f9", background: r % 2 === 1 ? "#f8fafc" : "#fff" }}>
               {row.map((cell, c) => (
-                <td key={c} style={{ padding: "11px 16px", minWidth: c === 0 ? "auto" : 140, lineHeight: 1.5, position: c === 0 ? "sticky" : "static", left: 0, background: c === 0 ? (r % 2 === 1 ? "#f8fafc" : "#fff") : "transparent", zIndex: c === 0 ? 10 : 1, borderRight: c === 0 ? "1px solid #e2e8f0" : "none", color: c === 0 ? "#1e293b" : "#475569", fontWeight: c === 0 ? 600 : 400 }}>
+                <td key={c} style={{ padding: "11px 16px", lineHeight: 1.5, color: c === 0 ? "#1e293b" : "#475569", fontWeight: c === 0 ? 600 : 400 }}>
                   {parseInline(cell, color)}
                 </td>
               ))}
@@ -245,16 +281,15 @@ function renderTable(block: string, color: string): React.ReactNode {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export function FormattedBotMessage({ text, color }: { text: string; color: string }) {
-  // --- Pre-processing ---
-  // 1. Ensure headings get their own block
-  // 2. Separate a ### heading from an immediately following table (| on next line)
-  // 3. Ensure each "N. " numbered item starts on its own block
-  const normalised = text
-    .replace(/(#{1,4} [^\n]+)\n(?!#|\n)/g, "$1\n\n")  // heading → own block
-    .replace(/(\n)(#{1,4} )/g, "\n\n$2")              // ensure newline before heading
-    .replace(/([^\n])\n(\d+\.\s)/g, "$1\n\n$2")       // numbered items → own block
-    // Separate ### heading from immediately following pipe-table
-    .replace(/(#{1,4}[^\n]+)\n(\|)/g, "$1\n\n$2");   
+  // ── Step 1: split inline numbered list runs onto their own lines ──
+  const step1 = splitInlineNumberedList(text);
+
+  // ── Step 2: standard block normalisation ──
+  const normalised = step1
+    .replace(/(#{1,4} [^\n]+)\n(?!#|\n)/g, "$1\n\n")   // heading → own block
+    .replace(/(\n)(#{1,4} )/g, "\n\n$2")                // newline before heading
+    .replace(/([^\n])\n(\d+\.\s)/g, "$1\n\n$2")         // numbered items → own block
+    .replace(/(#{1,4}[^\n]+)\n(\|)/g, "$1\n\n$2");      // heading before table
 
   const blocks = normalised.split(/\n\n+/);
 
@@ -264,47 +299,60 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
         const trimmed = block.trim();
         if (!trimmed) return null;
 
-        // ── H2 heading ##
+        // ── Section heading ## ──────────────────────────────────────────────
         if (/^#{2}\s/.test(trimmed)) {
-          const content = trimmed.replace(/^#{2}\s*/, "");
-          return (
-            <h3 key={i} style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: "8px 0 2px", borderBottom: `2px solid ${color}50`, paddingBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-              <Medal size={16} style={{ color }} />
-              {parseInline(content, color)}
-            </h3>
-          );
+          return <SectionHeading key={i} content={trimmed.replace(/^#{2}\s*/, "")} color={color} />;
         }
 
-        // ── H3/H4 heading ### / ####
+        // ── Sub-heading ### / #### ──────────────────────────────────────────
         if (/^#{3,4}\s/.test(trimmed)) {
           const card = tryParseAthleteCard(trimmed, color);
           if (card) return <div key={i}>{card}</div>;
           const content = trimmed.replace(/^#{3,4}\s*/, "");
           return (
-            <h4 key={i} style={{ fontSize: 15, fontWeight: 800, color: "#0f172a", margin: "6px 0 0", display: "flex", alignItems: "center", gap: 8, paddingBottom: 4, borderBottom: `1px solid ${color}30` }}>
-              <Medal size={13} style={{ color }} />
+            <div key={i} style={{
+              fontSize: 13.5, fontWeight: 700, color: "#0f172a",
+              display: "flex", alignItems: "center", gap: 8,
+              paddingBottom: 3, borderBottom: `1px solid ${color}25`,
+            }}>
+              <Medal size={12} style={{ color, flexShrink: 0 }} />
               {parseInline(content, color)}
-            </h4>
+            </div>
           );
         }
 
-        // ── FIX: Numbered section — stop at first newline so "2. 3. 4." don't collapse
-        const numberedMatch = trimmed.match(/^(\d+)\.\s+([^\n]+?)(?:\s*[—\u2013\u2012-]\s*([^\n]*))?$/);
-        if (numberedMatch && !trimmed.startsWith("|")) {
-          const [, num, rawTitle, rawRest] = numberedMatch;
-          const rest = (rawRest || "").trim();
-          return (
-            <NumberedHeading key={i} num={num} title={rawTitle.trim()} rest={rest} color={color} />
-          );
+        // ── Numbered item with "**Label:** detail" or "Label — detail" ─────
+        if (/^\d+\.\s/.test(trimmed) && !trimmed.startsWith("|")) {
+          // Try athlete card first
+          if (trimmed.includes("Height") || trimmed.includes("Weight") || trimmed.includes("Olympic Record")) {
+            const card = tryParseAthleteCard(`### ${trimmed}`, color);
+            if (card) return <div key={i}>{card}</div>;
+          }
+          // Try modern sport card
+          const parsed = parseNumberedItem(trimmed);
+          if (parsed) {
+            return <NumberedSportCard key={i} {...parsed} color={color} />;
+          }
+          // Fallback: plain numbered paragraph
+          const [, num, rest] = trimmed.match(/^(\d+)\.\s+(.*)$/s) ?? [];
+          if (num && rest) {
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: "50%", background: color,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2,
+                }}>
+                  <span style={{ fontSize: 10, fontWeight: 900, color: "#fff" }}>{num}</span>
+                </div>
+                <p style={{ margin: 0, fontSize: 14, color: "#1e293b", lineHeight: 1.7, flex: 1 }}>
+                  {parseInline(rest, color)}
+                </p>
+              </div>
+            );
+          }
         }
 
-        // ── Numbered athlete entry with stats
-        if (/^\d+\.\s/.test(trimmed) && (trimmed.includes("Height") || trimmed.includes("Weight") || trimmed.includes("Olympic Record"))) {
-          const card = tryParseAthleteCard(`### ${trimmed}`, color);
-          if (card) return <div key={i}>{card}</div>;
-        }
-
-        // ── FIX 1 & 4: Gemini&apos;s Insight card — solid bg, no gradient clip, white text
+        // ── Gemini's Insight card ───────────────────────────────────────────
         if (/\*\*Gemini'?s? Insight[:：]?\*\*|\*\*The Verdict[:：]?\*\*/i.test(trimmed)) {
           const clean = trimmed
             .replace(/\*\*Gemini'?s? Insight[:：]?\*\*/gi, "")
@@ -317,23 +365,18 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
               style={{
-                marginTop: 14,
-                borderRadius: 14,
-                overflow: "hidden",
-                // FIX 1 & 4: solid dark background — no gradient that clips text
+                marginTop: 14, borderRadius: 14, overflow: "hidden",
                 background: "#0f172a",
                 border: `1px solid ${color}40`,
                 boxShadow: `0 0 20px ${color}15, 0 4px 20px rgba(0,0,0,0.15)`,
               }}
             >
-              {/* Coloured top accent bar instead of full-card gradient */}
               <div style={{ height: 3, background: `linear-gradient(90deg, ${color}, ${color}44)` }} />
               <div style={{ padding: "14px 18px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 10 }}>
                   <div style={{
                     width: 26, height: 26, borderRadius: "50%",
-                    background: `${color}20`,
-                    border: `1px solid ${color}50`,
+                    background: `${color}20`, border: `1px solid ${color}50`,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
                     <Sparkles size={13} style={{ color }} />
@@ -342,14 +385,7 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
                     Gemini&apos;s Insight
                   </span>
                 </div>
-                {/* FIX 1: pure white text on dark background for max legibility */}
-                <p style={{
-                  fontStyle: "italic",
-                  color: "#f1f5f9",  // near-white, high contrast on #0f172a
-                  margin: 0,
-                  fontSize: 14,
-                  lineHeight: 1.75,
-                }}>
+                <p style={{ fontStyle: "italic", color: "#f1f5f9", margin: 0, fontSize: 14, lineHeight: 1.75 }}>
                   {parseInline(clean, color)}
                 </p>
               </div>
@@ -357,13 +393,13 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
           );
         }
 
-        // ── Markdown table
+        // ── Markdown table ──────────────────────────────────────────────────
         if (trimmed.includes("\n|") || trimmed.startsWith("|")) {
           const table = renderTable(trimmed, color);
           if (table) return <div key={i}>{table}</div>;
         }
 
-        // ── Bullet list
+        // ── Bullet list ─────────────────────────────────────────────────────
         if (/^[\*\-] /.test(trimmed) || trimmed.includes("\n* ") || trimmed.includes("\n- ")) {
           const lines = trimmed.split("\n");
           return (
@@ -377,7 +413,6 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
                     <div style={{ background: `${color}20`, borderRadius: "50%", padding: 3, marginTop: 3, flexShrink: 0 }}>
                       <ChevronRight size={13} style={{ color }} />
                     </div>
-                    {/* FIX 3: body text in strong contrast near-black */}
                     <span style={{ flex: 1, lineHeight: 1.7, fontSize: 14, color: "#1e293b" }}>
                       {parseInline(clean, color)}
                     </span>
@@ -388,7 +423,7 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
           );
         }
 
-        // ── Default paragraph — FIX 3: near-black body text
+        // ── Default paragraph ───────────────────────────────────────────────
         return (
           <p key={i} style={{ margin: 0, lineHeight: 1.75, fontSize: 14, color: "#1e293b" }}>
             {parseInline(trimmed, color)}

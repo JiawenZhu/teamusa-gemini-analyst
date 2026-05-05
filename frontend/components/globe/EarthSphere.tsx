@@ -31,6 +31,7 @@ export default function EarthSphere() {
   ]);
 
   // Give textures vivid, saturated colours
+  // eslint-disable-next-line react-hooks/immutability
   dayMap.colorSpace = THREE.SRGBColorSpace;
 
   // Clouds drift slightly faster than the Earth (parent group handles Earth rotation)

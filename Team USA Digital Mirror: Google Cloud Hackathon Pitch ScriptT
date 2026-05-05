@@ -1,0 +1,68 @@
+# Team USA Digital Mirror – Devpost / YouTube Pitch Script
+
+**Estimated Total Runtime:** ~2 minutes 38 seconds
+**Pacing:** Conversational, enthusiastic, and authoritative.
+
+---
+
+1. Introduction (The Vision)
+**Welcome to the Team USA Digital Mirror.** `[2.5 seconds]`
+With the Los Angeles 2028 Olympics on the horizon, we wanted to build something that doesn't just show Olympic history, but lets fans *feel* like a part of it. `[8.2 seconds]`
+
+Instead of a static dashboard, we built an immersive, AI-driven hub powered entirely by Google Cloud and the Gemini API. `[7.4 seconds]`
+At the center of our premium, editorial design system are four distinct pathways into the games. `[5.5 seconds]`
+
+---
+
+2. Feature 1: Spatial Olympic Timeline (Globe & Hand Tracking)
+**First, the Spatial Olympic Timeline.** `[2.0 seconds]`
+We wanted the interaction to feel like the future. `[3.2 seconds]`
+Using Google's MediaPipe, you don't even need a mouse. `[3.9 seconds]`
+You simply point your hand... `[1.8 seconds]`
+...and air double-tap to explore 120 years of host city data on an interactive 3D globe. `[6.0 seconds]`
+
+---
+
+3. Feature 4: AI Roster Agent (Chat & SQL Tooling)
+**But data alone isn't a story. That's where our AI Roster Agent comes in.** `[4.6 seconds]`
+By selecting a city, we seamlessly transition into a contextual conversation with Gemini. `[5.0 seconds]`
+
+We didn't just wrap an API. This is an autonomous agent built on FastAPI that has real-time access to a massive Kaggle dataset of historical Olympic results. `[10.5 seconds]`
+It dynamically queries SQL in the background to give you exact medal counts, legendary athlete stories, and historical context. `[7.8 seconds]`
+
+And to make it engaging, we added ultra-low-latency Text-to-Speech. You can literally have an audible conversation with Olympic history. `[8.0 seconds]`
+
+---
+
+4. Feature 2: Team USA Archetypes (Biometrics & K-Means)
+**Next, we make the data deeply personal with Team USA Olympic Archetypes.** `[4.8 seconds]`
+By entering your height, weight, and age, our backend runs a K-Means clustering algorithm against over 8,000 historical Team USA biometric records spanning a century. `[10.2 seconds]`
+
+The system places you into one of 6 distinct Olympic Archetypes—like the 'Aerobic Engine' or the 'Powerhouse'. `[7.4 seconds]`
+Gemini then uses this specific persona as a system prompt, tailoring the entire chat experience to your unique 'Olympic DNA'. `[8.2 seconds]`
+
+---
+
+5. Feature 3: Paralympic Deep-Dive (Classification Explainer)
+**Finally, to ensure equal representation, we built the Paralympic Deep-Dive.** `[4.5 seconds]`
+We recognized a massive gap in how Paralympic classification is understood. `[4.0 seconds]`
+Using Gemini, this feature instantly generates structured analysis on complex IPC classification systems, matching functional impairment profiles against Team USA's historic legacy, making Paralympic sports more accessible to fans than ever before. `[12.5 seconds]`
+
+---
+
+6. The Architecture (Tech Stack)
+**Under the hood, this is a masterclass in modern web architecture.** `[3.5 seconds]`
+
+- The frontend is a Next.js application leveraging Three.js for 3D rendering and Framer Motion for premium, liquid-glass animations. `[8.5 seconds]`
+- The backend is a lightning-fast FastAPI Python server. `[3.2 seconds]`
+- The intelligence is driven by the Gemini API, orchestrating SQL tools for precise data retrieval. `[6.5 seconds]`
+- And the entire stack is containerized and deployed effortlessly on Google Cloud Run, ensuring it scales globally for millions of fans. `[8.5 seconds]`
+
+---
+
+7. Conclusion
+As we look towards LA 2028, the Team USA Digital Mirror proves that with Google Cloud and Gemini, we can transform passive viewers into active participants in Olympic and Paralympic history. `[12.5 seconds]`
+
+Thank you to the judges for your time, and we'll see you in Los Angeles. `[4.6 seconds]`
+
+

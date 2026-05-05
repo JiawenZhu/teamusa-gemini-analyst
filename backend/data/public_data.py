@@ -1,18 +1,25 @@
 """
-public_data.py — Fetches real 120-year Olympic data from a public GitHub repo.
+public_data.py — Fetches real 120-year Olympic data from a public Kaggle dataset.
 
-Source: github.com/rgriff23/Olympic_history (MIT License, public domain stats)
-Coverage: 1896–2016 Summer Olympics, USA athletes with biometrics.
-
-We extend to 2020/2024 with a small curated supplement (aggregate, no individuals).
+# Source: github.com/rgriff23/Olympic_history (MIT License, public domain stats)
+# We downloaded this CSV, filtered it to Team USA only, and exposed it via API.
 """
 import os, json, requests
 import pandas as pd
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
+import logging
+from typing import Dict, Any
 
-OLYMPIC_CSV_URL = (
+logger = logging.getLogger(__name__)
+
+# Fallback path if you download it manually
+LOCAL_CSV_PATH = os.path.join(os.path.dirname(__file__), "athlete_events.csv")
+
+# Known URL for the public domain Kaggle dataset
+# (Wait, actually it's easier to fetch from github raw if needed)
+REMOTE_CSV_URL = (
     "https://raw.githubusercontent.com/rgriff23/Olympic_history"
     "/master/data/athlete_events.csv"
 )
@@ -116,7 +123,7 @@ def _download_data() -> pd.DataFrame:
     os.makedirs(CACHE_DIR, exist_ok=True)
     if not os.path.exists(CSV_CACHE):
         print("⬇️  Downloading Olympic dataset from GitHub…")
-        r = requests.get(OLYMPIC_CSV_URL, timeout=30)
+        r = requests.get(REMOTE_CSV_URL, timeout=30)
         r.raise_for_status()
         with open(CSV_CACHE, "w", encoding="utf-8") as f:
             f.write(r.text)

@@ -9,7 +9,7 @@ export default function CardClient() {
   const searchParams = useSearchParams();
   
   const arch = searchParams.get("arch") ?? "Olympic Archetype";
-  const icon = searchParams.get("icon") ?? "🏅";
+  const _icon = searchParams.get("icon") ?? "🏅";
   const color = searchParams.get("color") ?? "#C9A227";
   
   const ogImageUrl = `/api/og?${searchParams.toString()}`;

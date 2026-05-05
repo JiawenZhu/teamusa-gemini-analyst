@@ -23,7 +23,10 @@ interface GlobeBgProps {
 
 export default function GlobeBackground({ userLocation, triggerCity, isInteractive }: GlobeBgProps) {
 
-    const [viewState, setViewState] = useState({
+    const [viewState, setViewState] = useState<{
+        longitude: number; latitude: number; zoom: number; pitch: number; bearing: number;
+        transitionDuration?: number; transitionInterpolator?: FlyToInterpolator;
+    }>({
         longitude: LA_COORDS[0],
         latitude: LA_COORDS[1],
         zoom: 0.5,
@@ -35,7 +38,7 @@ export default function GlobeBackground({ userLocation, triggerCity, isInteracti
     useEffect(() => {
         if (isInteractive && !userLocation && !triggerCity) {
             startTransition(() => {
-                setViewState(v => ({
+                setViewState((v) => ({
                     ...v,
                     zoom: 1.2,
                     transitionDuration: 2000,
@@ -163,7 +166,7 @@ export default function GlobeBackground({ userLocation, triggerCity, isInteracti
                 layers={layers}
                 parameters={{
                     clearColor: [0.0, 0.0, 0.0, 0.0] // Fully transparent canvas background
-                }}
+                } as { clearColor: [number, number, number, number] }}
             />
         </div>
     );

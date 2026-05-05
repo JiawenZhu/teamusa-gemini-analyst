@@ -34,8 +34,7 @@ from data.archetypes import ARCHETYPE_MAP
 # ── Gemini client ─────────────────────────────────────────────────────────────
 
 def _make_client() -> genai.Client:
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    return genai.Client(api_key=api_key)
+    return genai.Client(vertexai=True, project="teamusa-8b1ba", location="global")
 
 
 # All agents use Flash — Pro+thinking adds 40-60s of latency for no visible benefit

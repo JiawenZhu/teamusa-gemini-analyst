@@ -13,23 +13,24 @@
 import React, {
   Suspense, useRef, useState, useEffect, useCallback, startTransition,
 } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Hand, Filter } from 'lucide-react';
+import { X, Hand, Filter, Mic, MicOff, Volume2 } from 'lucide-react';
 
 import EarthSphere from './EarthSphere';
 import CityMarkers from './CityMarkers';
 import FlightArc from './FlightArc';
 import AllOlympicCityPins, { OlympicCity } from './AllOlympicCityPins';
 import HandGestureOverlay, { GestureState, makeGestureState } from '../HandGestureOverlay';
+// import { useVoiceAssistant } from '@/hooks/useVoiceAssistant';
 
 const LA = { lat: 34.0522, lng: -118.2437 };
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 // ── Dark-mode inline markdown renderer ────────────────────────────────────────
-// Converts **bold** → highlighted span, other text → plain span
+// Converts **bold** → gold highlighted chip span, other text → plain span.
 function renderInline(text: string, accent: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*)/g);
   return parts.map((p, i) => {
@@ -46,6 +47,75 @@ function renderInline(text: string, accent: string): React.ReactNode {
     }
     return <span key={i}>{p}</span>;
   });
+}
+
+// ── Olympic keyword highlighter for the live chat overlay ─────────────────────
+const OLYMPIC_PATTERNS: { re: RegExp; color: string; bg: string; icon?: string }[] = [
+  // Gold medals / 1st place
+  { re: /\b(gold\s+medal[s]?|1st\s+place|first\s+place|champion(?:ship)?s?|🥇)\b/gi,
+    color: '#F59E0B', bg: 'rgba(245,158,11,0.12)', icon: '🥇' },
+  // Silver medals / 2nd place
+  { re: /\b(silver\s+medal[s]?|2nd\s+place|second\s+place|runner[- ]up|🥈)\b/gi,
+    color: '#94A3B8', bg: 'rgba(148,163,184,0.12)', icon: '🥈' },
+  // Bronze medals / 3rd place
+  { re: /\b(bronze\s+medal[s]?|3rd\s+place|third\s+place|🥉)\b/gi,
+    color: '#CD7F32', bg: 'rgba(205,127,50,0.12)', icon: '🥉' },
+  // Medal counts (numbers followed by "medal(s)" or "gold/silver/bronze")
+  { re: /\b(\d+)\s+(gold|silver|bronze)\s+medal[s]?\b/gi,
+    color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', icon: '🏅' },
+  // Team USA
+  { re: /\b(Team\s+USA|USA|United\s+States)\b/g,
+    color: '#60A5FA', bg: 'rgba(96,165,250,0.1)', icon: undefined },
+  // **bold** markdown
+  { re: /\*\*([^*]+)\*\*/g,
+    color: '#E2E8F0', bg: 'rgba(255,255,255,0.06)', icon: undefined },
+];
+
+function renderLiveText(text: string): React.ReactNode {
+  if (!text) return null;
+
+  // Build an array of {start, end, color, bg, icon, label} spans
+  type Span = { start: number; end: number; color: string; bg: string; icon?: string; label: string };
+  const spans: Span[] = [];
+
+  for (const { re, color, bg, icon } of OLYMPIC_PATTERNS) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      // Check no overlap with existing spans
+      const s = m.index, e = m.index + m[0].length;
+      if (spans.some(sp => s < sp.end && e > sp.start)) continue;
+      // For **bold** pattern, display the inner capture group (strip asterisks)
+      const isBold = re.source.includes('\\*\\*');
+      const label = isBold ? (m[1] ?? m[0]) : m[0];
+      spans.push({ start: s, end: e, color, bg, icon, label });
+    }
+  }
+
+  if (spans.length === 0) return <span>{text}</span>;
+
+  spans.sort((a, b) => a.start - b.start);
+
+  const nodes: React.ReactNode[] = [];
+  let cursor = 0;
+  for (const sp of spans) {
+    if (sp.start > cursor) nodes.push(<span key={`t${cursor}`}>{text.slice(cursor, sp.start)}</span>);
+    nodes.push(
+      <span key={`h${sp.start}`} style={{
+        color: sp.color,
+        background: sp.bg,
+        borderRadius: 4,
+        padding: '0 3px',
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+      }}>
+        {sp.icon && !sp.label.match(/^[🥇🥈🥉🏅]/) ? `${sp.icon} ` : ''}{sp.label}
+      </span>
+    );
+    cursor = sp.end;
+  }
+  if (cursor < text.length) nodes.push(<span key={`t${cursor}`}>{text.slice(cursor)}</span>);
+  return <>{nodes}</>;
 }
 
 // Renders the full Gemini response into structured dark-mode cards
@@ -133,8 +203,8 @@ const cityHighlightsCache: Record<string, string> = {};
 
 // ── City detail panel ─────────────────────────────────────────────────────────
 function CityDetailPanel({
-  city, onClose, archetypeId, setIsGenerating, onGoToChat
-}: { city: OlympicCity; onClose: () => void; archetypeId: string, setIsGenerating: (val: boolean) => void, onGoToChat?: (city: string) => void }) {
+  city, onClose, archetypeId, setIsGenerating, onGoToChat, gestureActive
+}: { city: OlympicCity; onClose: () => void; archetypeId: string, setIsGenerating: (val: boolean) => void, onGoToChat?: (city: string) => void, gestureActive?: boolean }) {
   const [chatText, setChatText] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
@@ -145,15 +215,20 @@ function CityDetailPanel({
   useEffect(() => {
     const cacheKey = `${city.city}-${archetypeId}`;
     if (cityHighlightsCache[cacheKey]) {
-      setChatText(cityHighlightsCache[cacheKey]);
-      setLoading(false);
-      setIsGenerating(false);
+      const cached = cityHighlightsCache[cacheKey];
+      startTransition(() => {
+        setChatText(cached);
+        setLoading(false);
+        setIsGenerating(false);
+      });
       return;
     }
 
-    setChatText('');
-    setLoading(true);
-    setIsGenerating(true);
+    startTransition(() => {
+      setChatText('');
+      setLoading(true);
+      setIsGenerating(true);
+    });
 
     // Cancel previous requests if user clicks too quickly
     const abortController = new AbortController();
@@ -327,7 +402,7 @@ function CityDetailPanel({
               display: 'flex', alignItems: 'center', gap: 4,
               opacity: 0.8
             }}>
-              Click here to chat about this with Gemini →
+              {gestureActive ? "Air double-tap again to chat about this with Gemini →" : "Click here to chat about this with Gemini →"}
             </div>
           </div>
         )}
@@ -516,19 +591,25 @@ function GlobeGroup({
   const groupRef = useRef<THREE.Group>(null!);
   const targetRotY = useRef<number | null>(null);
   const autoSpin = useRef(true);
+  const { camera } = useThree();
 
   useEffect(() => {
     if (!activeCity) { autoSpin.current = true; return; }
     autoSpin.current = false;
     if (groupRef.current) {
-      const raw = -(activeCity.lng * Math.PI / 180) - Math.PI / 2;
+      // Calculate target rotation relative to current camera angle
+      const cameraAzimuth = Math.atan2(camera.position.x, camera.position.z);
+      // For this mapping (where lng=0 is +x natively), the azimuth is (lng + 90)
+      const cityAzimuth = (activeCity.lng + 90) * Math.PI / 180;
+      
+      const raw = cameraAzimuth - cityAzimuth;
       const cur = groupRef.current.rotation.y;
       const diff = ((raw - cur) % (2 * Math.PI));
       targetRotY.current = cur + (diff > Math.PI ? diff - 2 * Math.PI : diff < -Math.PI ? diff + 2 * Math.PI : diff);
     }
     const t = setTimeout(() => { autoSpin.current = true; targetRotY.current = null; }, 8000);
     return () => clearTimeout(t);
-  }, [activeCity]);
+  }, [activeCity, camera]);
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
@@ -578,15 +659,21 @@ function GlobeGroup({
 
 // ── Main fullscreen component ─────────────────────────────────────────────────
 interface FullscreenGlobeProps {
-  userLocation?: { lat: number; lng: number; city?: string } | null;
-  triggerCity?: { lat: number; lng: number; city?: string } | null;
+  userLocation: { lat: number; lng: number; city: string } | null;
+  triggerCity: { city: string; lat: number; lng: number } | null;
   archetypeId: string;
   onClose: () => void;
   onGoToChat?: (city: string) => void;
+  pauseGesture?: boolean;
+  voiceAssistant?: {
+    voiceEnabled: boolean;
+    micState: string;
+    toggleLive: (prompt?: string) => void;
+  };
 }
 
 export default function FullscreenGlobe({
-  userLocation, triggerCity, archetypeId, onClose, onGoToChat
+  userLocation, triggerCity, archetypeId, onClose, onGoToChat, pauseGesture, voiceAssistant
 }: FullscreenGlobeProps) {
   const [allCities, setAllCities] = useState<OlympicCity[]>([]);
   const [hoveredCity, setHoveredCity] = useState<OlympicCity | null>(null);
@@ -595,6 +682,47 @@ export default function FullscreenGlobe({
   const [isGenerating, setIsGenerating] = useState(false);
   const [yearRange, setYearRange] = useState<[number, number]>([1896, 2016]);
   const [showFilter, setShowFilter] = useState(false);
+  const [liveMessages, setLiveMessages] = useState<{role: 'agent' | 'user'; text: string}[]>([]);
+
+  const voiceEnabled = voiceAssistant?.voiceEnabled ?? false;
+  const micState = voiceAssistant?.micState ?? 'idle';
+  const toggleLive = voiceAssistant?.toggleLive ?? (() => {});
+
+  // Listen for live text from voice
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onText = (e: Event) => {
+      const { role, text } = (e as CustomEvent<{role: 'agent' | 'user'; text: string}>).detail;
+      if (!text?.trim()) return;
+      setLiveMessages(prev => {
+        // If same role as last message, append to it (streaming chunks)
+        const last = prev[prev.length - 1];
+        if (last && last.role === role) {
+          return [...prev.slice(0, -1), { role, text: last.text + text }];
+        }
+        return [...prev, { role, text }];
+      });
+    };
+    window.addEventListener('live_text', onText);
+    return () => window.removeEventListener('live_text', onText);
+  }, []);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTo({
+        top: chatScrollRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [liveMessages]);
+
+  // Clear chat history when a new voice session starts
+  useEffect(() => {
+    if (voiceEnabled) {
+      setLiveMessages([]);
+    }
+  }, [voiceEnabled]);
 
   // Shared refs — written by HandGestureOverlay, read by GestureApplier every frame
   const gestureRef = useRef<GestureState>(makeGestureState());
@@ -620,8 +748,12 @@ export default function FullscreenGlobe({
 
   const handleGestureSelect = useCallback((city: OlympicCity) => {
     if (isGenerating) return;
-    startTransition(() => setSelectedCity(city));
-  }, [isGenerating]);
+    if (selectedCity && selectedCity.city === city.city) {
+      if (onGoToChat) onGoToChat(city.city);
+    } else {
+      startTransition(() => setSelectedCity(city));
+    }
+  }, [isGenerating, selectedCity, onGoToChat]);
 
   // Filter cities by year range
   const filteredCities = allCities.filter(c =>
@@ -684,6 +816,35 @@ export default function FullscreenGlobe({
           >
             <Hand size={14} />
             {gestureActive ? 'Gesture ON' : 'Gesture'}
+          </button>
+
+          {/* Voice AI toggle */}
+          <button
+            onClick={() => toggleLive('You are helping a user explore the Olympic World Map. Introduce yourself briefly and let them know they can ask you anything about the Olympics.')} 
+            title={voiceEnabled ? 'Stop Voice AI' : 'Talk to the AI Analyst'}
+            style={{
+              background: voiceEnabled ? 'rgba(239,68,68,0.2)' : 'rgba(99,102,241,0.15)',
+              border: `1px solid ${voiceEnabled ? '#ef4444' : '#6366f1'}`,
+              borderRadius: 10, padding: '8px 14px',
+              color: voiceEnabled ? '#f87171' : '#a5b4fc',
+              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
+              position: 'relative',
+            }}
+          >
+            {voiceEnabled
+              ? (micState === 'speaking' ? <Volume2 size={14} style={{ animation: 'pulse 1s infinite' }} /> : <MicOff size={14} />)
+              : <Mic size={14} />}
+            {voiceEnabled
+              ? (micState === 'speaking' ? 'Speaking…' : micState === 'listening' ? 'Listening…' : 'Voice ON')
+              : 'Voice AI'}
+            {voiceEnabled && micState === 'listening' && (
+              <span style={{
+                position: 'absolute', top: 6, right: 6,
+                width: 6, height: 6, borderRadius: '50%',
+                background: '#f87171',
+                animation: 'pulse-dot 1.2s ease-in-out infinite',
+              }} />
+            )}
           </button>
 
           {/* Close */}
@@ -804,6 +965,181 @@ export default function FullscreenGlobe({
         ))}
       </div>
 
+      {/* Voice AI status panel & Chat Log */}
+      <AnimatePresence>
+        {voiceEnabled && (
+          <motion.div
+            key="voice-panel"
+            initial={{ opacity: 0, x: 40 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 40 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            style={{
+              position: 'absolute',
+              top: 100,
+              bottom: 40,
+              right: 40,
+              width: 380,
+              display: 'flex',
+              flexDirection: 'column',
+              zIndex: 150,
+            }}
+          >
+            {/* Header: Controls & Status */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16,
+              background: 'rgba(2,8,23,0.4)', backdropFilter: 'blur(12px)',
+              padding: '12px 16px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)'
+            }}>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: '50%',
+                  background: micState === 'speaking' ? 'rgba(99,102,241,0.3)' : 'rgba(239,68,68,0.2)',
+                  border: `2px solid ${micState === 'speaking' ? '#6366f1' : '#ef4444'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  animation: micState === 'listening' ? 'ring-pulse 1.5s ease-in-out infinite' : 'none',
+                }}>
+                  {micState === 'speaking' ? <Volume2 size={16} color="#a5b4fc" /> : <Mic size={16} color="#f87171" />}
+                </div>
+                {micState === 'listening' && (
+                  <div style={{
+                    position: 'absolute', inset: -6, borderRadius: '50%',
+                    border: '2px solid rgba(239,68,68,0.4)',
+                    animation: 'ring-expand 1.5s ease-out infinite',
+                  }} />
+                )}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f8fafc' }}>
+                  {micState === 'speaking' ? 'AI Analyst speaking…' :
+                   micState === 'listening' ? 'Listening…' : 'Connecting…'}
+                </div>
+              </div>
+              <button
+                onClick={() => toggleLive()}
+                style={{
+                  background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.4)',
+                  borderRadius: 8, padding: '6px 12px', color: '#f87171',
+                  fontSize: 11, fontWeight: 600, cursor: 'pointer'
+                }}
+              >
+                End
+              </button>
+            </div>
+
+              {/* Scrolling Chat Log (Apple Music style) */}
+            <div
+              ref={chatScrollRef}
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '0 4px 8px 0',
+                // Tighter gradient: transparent at top, fully opaque from 25% down
+                WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 10%, black 28%, black 100%)',
+                maskImage: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 10%, black 28%, black 100%)',
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+              }}
+            >
+              <style>{`
+                div::-webkit-scrollbar { display: none; }
+              `}</style>
+              <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 14, paddingTop: 60 }}>
+                {liveMessages.length === 0 ? (
+                  <span style={{
+                    opacity: 0.3, fontWeight: 400, fontSize: 14,
+                    fontStyle: 'italic', color: '#94a3b8', lineHeight: 1.6,
+                  }}>Try asking: "Which city has hosted the most Olympics?"</span>
+                ) : (
+                  liveMessages.map((msg, i) => {
+                    const total = liveMessages.length;
+                    const fromEnd = total - 1 - i; // 0 = most recent
+                    const opacity = Math.max(0.15, 1 - fromEnd * 0.18);
+                    const isLatest = i === total - 1;
+                    const prevMsg = i > 0 ? liveMessages[i - 1] : null;
+                    const showDivider = prevMsg && prevMsg.role !== msg.role && msg.role === 'agent';
+
+                    return (
+                      <div key={i}>
+                        {/* Turn separator: thin rule before each new agent response */}
+                        {showDivider && (
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            margin: '6px 0 10px',
+                            opacity: opacity * 0.5,
+                          }}>
+                            <div style={{ flex: 1, height: 1, background: 'rgba(96,165,250,0.15)' }} />
+                            <span style={{ fontSize: 8, letterSpacing: '0.15em', color: 'rgba(96,165,250,0.4)', textTransform: 'uppercase' }}>response</span>
+                            <div style={{ flex: 1, height: 1, background: 'rgba(96,165,250,0.15)' }} />
+                          </div>
+                        )}
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 3,
+                          alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                          opacity,
+                          transition: 'opacity 0.4s ease',
+                        }}>
+                          {/* Role label — only on first of consecutive same-role messages */}
+                          {(i === 0 || liveMessages[i - 1].role !== msg.role) && (
+                            <span style={{
+                              fontSize: 9,
+                              fontWeight: 600,
+                              letterSpacing: '0.12em',
+                              textTransform: 'uppercase',
+                              color: msg.role === 'user' ? 'rgba(148,163,184,0.5)' : 'rgba(96,165,250,0.55)',
+                              marginBottom: 1,
+                              paddingLeft: msg.role === 'agent' ? 2 : 0,
+                              paddingRight: msg.role === 'user' ? 2 : 0,
+                            }}>
+                              {msg.role === 'user' ? '🎙 You' : '⚡ AI Analyst'}
+                            </span>
+                          )}
+                          <div style={{
+                            fontSize: msg.role === 'agent' ? (isLatest ? 17 : 15) : 13,
+                            fontWeight: msg.role === 'agent' ? (isLatest ? 500 : 400) : 400,
+                            color: msg.role === 'agent' ? (isLatest ? '#f1f5f9' : '#cbd5e1') : '#94a3b8',
+                            lineHeight: 1.7,
+                            letterSpacing: msg.role === 'agent' ? '-0.01em' : 'normal',
+                            maxWidth: '100%',
+                          }}>
+                            {msg.role === 'agent'
+                              ? renderLiveText(msg.text)
+                              : <span style={{ fontStyle: 'italic' }}>{msg.text}</span>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* CSS keyframes for voice animations */}
+      <style>{`
+        @keyframes ring-pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.08); opacity: 0.85; }
+        }
+        @keyframes ring-expand {
+          0% { transform: scale(1); opacity: 0.6; }
+          100% { transform: scale(1.8); opacity: 0; }
+        }
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
+      `}</style>
+
       {/* City detail panel */}
       <AnimatePresence>
         {selectedCity && (
@@ -814,6 +1150,7 @@ export default function FullscreenGlobe({
             onClose={() => setSelectedCity(null)}
             setIsGenerating={setIsGenerating}
             onGoToChat={onGoToChat}
+            gestureActive={gestureActive}
           />
         )}
       </AnimatePresence>
@@ -823,8 +1160,13 @@ export default function FullscreenGlobe({
         gestureRef={gestureRef}
         hoveredCityRef={hoveredCityRef}
         onCitySelect={handleGestureSelect}
-        active={gestureActive}
+        active={gestureActive && !pauseGesture}
         hoveredCity={hoveredCity}
+        onCloseSideBar={() => {
+          if (!isGenerating && selectedCity) {
+            startTransition(() => setSelectedCity(null));
+          }
+        }}
       />
     </motion.div>
   );

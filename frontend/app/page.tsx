@@ -9,15 +9,18 @@ import { InputSection } from "@/components/InputSection";
 import { MatchResultPanel } from "@/components/MatchResultPanel";
 import { ChatPanel } from "@/components/ChatPanel";
 import { ArchetypeExplorer } from "@/components/ArchetypeExplorer";
+import { ParalympicExplainer } from "@/components/ParalympicExplainer";
 import { TimelineChart } from "@/components/TimelineChart";
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 import GlobeScene from "@/components/globe/GlobeScene";
 import FullscreenGlobe from "@/components/globe/FullscreenGlobe";
+import { FeaturesNav } from "@/components/FeaturesNav";
 import { AnimatePresence } from "framer-motion";
 
 export default function Page() {
   const [stats, setStats] = useState<DatasetStats | null>(null);
   const [archetypes, setArchetypes] = useState<ArchetypeProfile[]>([]);
+  const [paraArchetypes, setParaArchetypes] = useState<ArchetypeProfile[]>([]);
   const [selected, setSelected] = useState<ArchetypeProfile | null>(null);
   const [h, setH] = useState(""); const [w, setW] = useState(""); const [age, setAge] = useState("");
   const [mode, setMode] = useState<"olympic" | "paralympic">("olympic");
@@ -55,6 +58,7 @@ export default function Page() {
     stopAudio,
     startListening,
     stopListening,
+    toggleLive,
   } = useVoiceAssistant();
 
   const resultRef = useRef<HTMLDivElement>(null);
@@ -63,6 +67,8 @@ export default function Page() {
   useEffect(() => {
     fetchStats().then(setStats);
     fetchArchetypes().then(setArchetypes);
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/para-archetypes`)
+      .then(r => r.json()).then(d => setParaArchetypes(d.archetypes ?? []));
     fetchTimeline().then(setTimeline);
 
     // Feature A: Read shared URL params and auto-run match
@@ -140,6 +146,39 @@ export default function Page() {
     setTimeout(() => setGlobeToast(null), 8000);
   };
 
+  // ── Sync Live API Text to Chat History ──────────────────────────────────────
+  useEffect(() => {
+    const handleLiveText = (e: any) => {
+      const text = e.detail;
+      setChat(prev => {
+        let newChat;
+        if (prev.length > 0 && prev[prev.length - 1].role === "model") {
+           const last = prev[prev.length - 1];
+           newChat = [...prev.slice(0, -1), { role: "model", text: last.text + " " + text }];
+        } else {
+           newChat = [...prev, { role: "model", text }];
+        }
+        return newChat;
+      });
+      // Scroll to bottom after state update
+      setTimeout(() => {
+        chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: "smooth" });
+      }, 50);
+    };
+
+    const handleMapTrigger = (e: any) => {
+      const { city, lat, lng } = e.detail;
+      fireTriggerCity(city, lat, lng);
+    };
+
+    window.addEventListener("live_text", handleLiveText);
+    window.addEventListener("map_trigger", handleMapTrigger);
+    return () => {
+      window.removeEventListener("live_text", handleLiveText);
+      window.removeEventListener("map_trigger", handleMapTrigger);
+    };
+  }, []);
+
   const handleLocationSubmit = async () => {
     if (!hometown.trim()) return;
     setLocLoading(true);
@@ -154,6 +193,17 @@ export default function Page() {
     }
   };
 
+
+  useEffect(() => {
+    const handleMapTrigger = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.city) {
+        fireTriggerCity(detail.city, detail.lat || 0, detail.lng || 0);
+      }
+    };
+    window.addEventListener("map_trigger", handleMapTrigger);
+    return () => window.removeEventListener("map_trigger", handleMapTrigger);
+  }, []);
 
   const doChat = useCallback(async () => {
     if (!msg.trim() || !result) return;
@@ -172,7 +222,7 @@ export default function Page() {
           m,
           result.archetype_id,
           currentChat,
-          async (text, audio, _idx) => {
+          async (text) => {
             rendered += (rendered ? " " : "") + text;
             setChat(c => {
               const updated = [...c];
@@ -282,10 +332,10 @@ export default function Page() {
             >
               <div style={{ padding: "0 32px 16px" }}>
                 <h2 style={{ margin: "0 0 12px 0", fontSize: 24, fontWeight: 700, color: "#F8FAFC", textAlign: "center" }}>
-                  Hold up! Let's find your archetype first.
+                  Hold up! Let&apos;s find your archetype first.
                 </h2>
                 <p style={{ color: "#94A3B8", margin: 0, fontSize: 14, lineHeight: 1.5, textAlign: "center" }}>
-                  Gemini gives much better answers when it knows your Olympic DNA. Fill out your stats to unlock personalized chat insights!
+                  Gemini gives more tailored answers when it knows your biometric archetype. Fill out your stats below to unlock personalized historical pattern insights!
                 </p>
               </div>
               
@@ -335,6 +385,11 @@ export default function Page() {
         
         <Hero stats={stats} />
 
+        <FeaturesNav 
+          onOpenModal={() => setShowStatsModal(true)} 
+          onOpenFullscreenMap={() => setIsGlobeFullscreen(true)} 
+        />
+
         {/* ── SHARED VIEW BANNER ───────────────────────────────────── */}
         {isSharedView && (
           <motion.div
@@ -350,7 +405,7 @@ export default function Page() {
           >
             <span style={{ fontSize: 20 }}>🔗</span>
             <div style={{ flex: 1 }}>
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#C9A227" }}>Viewing a shared Olympic DNA result</p>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#C9A227" }}>Viewing a shared biometric archetype result</p>
               <p style={{ margin: 0, fontSize: 12, color: "var(--text-sub)", marginTop: 2 }}>This result was shared with you. Enter your own measurements below to find your archetype!</p>
             </div>
             <button
@@ -500,13 +555,13 @@ export default function Page() {
             />
             
             {result && (
-              <section id="chat-panel" style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px 80px" }}>
+              <section id="chat-panel" style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px 64px" }}>
                 <ChatPanel 
                   result={result}
                   chat={chat} msg={msg} setMsg={setMsg} chatLoading={chatLoading} doChat={doChat}
                   voiceEnabled={voiceEnabled} setVoiceEnabled={setVoiceEnabled} stopAudio={stopAudio}
                   isSpeaking={isSpeaking} micState={micState}
-                  startListening={() => startListening((t) => setMsg(t), doChat)}
+                  startListening={() => startListening((t) => setMsg(t), doChat, "User biometrics: " + (result?.archetype.description || ""), result?.archetype_id)}
                   stopListening={stopListening}
                   chatContainerRef={chatContainerRef}
                 />
@@ -520,19 +575,34 @@ export default function Page() {
           selected={selected} setSelected={setSelected}
         />
 
+        <ParalympicExplainer
+          paraArchetypes={paraArchetypes}
+          userHeight={h ? parseFloat(h) : undefined}
+          userWeight={w ? parseFloat(w) : undefined}
+        />
+
         <TimelineChart 
           timeline={timeline} archetypes={archetypes} result={result}
           h={h} accent={accent}
         />
 
         {/* ── FOOTER ─────────────────────────────────────────────────────── */}
-        <footer style={{ borderTop: "1px solid #1E293B", padding: "32px 24px", textAlign: "center", position: "relative", zIndex: 1 }}>
-          <p style={{ fontSize: 12, color: "var(--text-sub)" }}>
-            Built for the <strong style={{ color: "#C9A227" }}>Vibe Code for Gold with Google</strong> hackathon ·
-            Data: github.com/rgriff23/Olympic_history (public domain) ·
-            All insights use conditional language. No individual athletes identified. No performance guarantees implied.
+        <footer style={{ borderTop: "1px solid var(--border-color)", padding: "32px 16px", textAlign: "center", position: "relative", zIndex: 1 }}>
+          <p style={{ fontSize: 12, color: "var(--text-sub)", lineHeight: 1.7 }}>
+            Built for the{" "}
+            <a href="https://vibecodeforgoldwithgoogle.devpost.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#C9A227", fontWeight: 700, textDecoration: "none" }}>
+              Vibe Code for Gold with Google
+            </a>{" "}
+            hackathon.
           </p>
-          <p style={{ fontSize: 11, color: "var(--border-color)", marginTop: 6 }}>
+          <p style={{ fontSize: 11, color: "var(--text-sub)", marginTop: 6, lineHeight: 1.7, maxWidth: 640, margin: "6px auto 0" }}>
+            This project uses the{" "}
+            <a href="https://www.kaggle.com/datasets/heesoo37/120-years-of-olympic-history-athletes-and-results/data" target="_blank" rel="noopener noreferrer" style={{ color: "var(--text-sub)", textDecoration: "underline" }}>
+              CC0 Kaggle 120 Years of Olympic History dataset
+            </a>
+            , filtered to Team USA records from 1896–2016. All user-facing insights are aggregate, anonymized, and conditional.
+          </p>
+          <p style={{ fontSize: 11, color: "var(--border-color)", marginTop: 8 }}>
             Powered by Google Cloud · Gemini API · Next.js · FastAPI · K-means clustering
           </p>
         </footer>
@@ -558,6 +628,12 @@ export default function Page() {
               setTimeout(() => {
                 document.getElementById('chat-panel')?.scrollIntoView({ behavior: "smooth", block: "center" });
               }, 400);
+            }}
+            pauseGesture={showStatsModal}
+            voiceAssistant={{
+              voiceEnabled,
+              micState,
+              toggleLive: (prompt?: string) => toggleLive(prompt, result?.archetype_id),
             }}
           />
         )}

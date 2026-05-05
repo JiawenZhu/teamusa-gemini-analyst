@@ -16,14 +16,14 @@ export function ArchetypeExplorer({
   setSelected: (arch: ArchetypeProfile | null) => void;
 }) {
   return (
-    <section style={{ maxWidth: 1100, margin: "0 auto", padding: "64px 24px" }}>
+    <section id="archetypes-section" style={{ maxWidth: 1100, margin: "0 auto", padding: "56px 16px" }}>
       <h2 style={{ textAlign: "center", fontSize: 28, fontWeight: 800, marginBottom: 8 }}>
         The 6 Archetypes of <span style={{ color: "#C9A227" }}>Team USA</span>
       </h2>
       <p style={{ textAlign: "center", color: "var(--text-sub)", marginBottom: 40, fontSize: 14 }}>
         K-means clustering of {fmt(stats?.total_records || 0)} athlete biometric records · 1896–2016
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(min(240px,100%),1fr))", gap: 16 }}>
         {archetypes.map((a, i) => (
           <motion.button 
             initial={{ opacity: 0, y: 30 }}

@@ -39,9 +39,7 @@ export function Hero({ stats }: { stats: DatasetStats | null }) {
           ))}
         </div>
       )}
-      <p style={{ marginTop: 18, fontSize: 11, color: "var(--text-sub)" }}>
-        Data: {stats?.data_source || "github.com/rgriff23/Olympic_history"} · Filtered to USA Summer athletes · No individual athletes identified
-      </p>
+
     </section>
   );
 }

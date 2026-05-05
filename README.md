@@ -40,7 +40,20 @@
 
 ---
 
+## 📖 About
+
+**TeamUSA Gemini Analyst** — AI-powered athlete archetype matching across 120 years of Team USA Olympic history. Built with Gemini & Google Cloud.
+
+| Service | URL |
+|---|---|
+| **Live App** | [teamusa-8b1ba.web.app](https://teamusa-8b1ba.web.app) |
+| **Backend API** | [teamusa-oracle-api-789615763226.us-central1.run.app](https://teamusa-oracle-api-789615763226.us-central1.run.app) |
+| **API Docs** | [teamusa-oracle-api-789615763226.us-central1.run.app/docs](https://teamusa-oracle-api-789615763226.us-central1.run.app/docs) |
+
+---
+
 ## 🏗️ Architecture
+
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -281,17 +294,14 @@ The agent has 11 function-calling tools:
 
 ---
 
-## 🌐 Deployed URLs
-
-| Service | URL |
-|---|---|
-| **Live App** | https://teamusa-8b1ba.web.app |
-| **Backend API** | https://teamusa-oracle-api-789615763226.us-central1.run.app |
-| **API Docs** | https://teamusa-oracle-api-789615763226.us-central1.run.app/docs |
 
 ---
 
-## 📊 Key Design Decisions
+## 🏆 Hackathon
+
+Built for the **[Vibe Code for Gold with Google Hackathon](https://vibecodeforgoldwithgoogle.devpost.com/)** — Challenge 4: The Athlete Archetype Agent.
+
+*Data: [Olympic History 1896–2016](https://github.com/rgriff23/Olympic_history) (MIT License). All data is aggregate and historical.*
 
 | Decision | Rationale |
 |---|---|

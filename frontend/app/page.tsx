@@ -603,7 +603,7 @@ export default function Page() {
                   chat={chat} msg={msg} setMsg={setMsg} chatLoading={chatLoading} doChat={doChat}
                   voiceEnabled={voiceEnabled} setVoiceEnabled={setVoiceEnabled} stopAudio={stopAudio}
                   isSpeaking={isSpeaking} micState={micState}
-                  startListening={() => startListening((t) => setMsg(t), doChat, "User biometrics: " + (result?.archetype.description || ""), result?.archetype_id)}
+                  startListening={() => startListening("User biometrics: " + (result?.archetype.description || ""), result?.archetype_id)}
                   stopListening={stopListening}
                   chatContainerRef={chatContainerRef}
                 />
@@ -666,7 +666,7 @@ export default function Page() {
                 return;
               }
               setIsGlobeFullscreen(false);
-              setMsg(`Tell me about Team USA in ${topic}, and how my archetype (${result.archetype.name}) connects to the athletes or sports there.`);
+              setMsg(`Tell me about Team USA in ${topic}, and how my archetype (${result.archetype.label}) connects to the athletes or sports there.`);
               setTimeout(() => {
                 document.getElementById('chat-panel')?.scrollIntoView({ behavior: "smooth", block: "center" });
               }, 400);

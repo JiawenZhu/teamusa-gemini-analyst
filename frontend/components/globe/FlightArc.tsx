@@ -26,7 +26,8 @@ interface FlightArcProps {
 
 export default function FlightArc({ fromLat, fromLng, toLat, toLng, color = '#FFD700' }: FlightArcProps) {
   const dashOffsetRef = useRef(0);
-  const lineRef = useRef<{ material: { dashOffset: number } } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lineRef = useRef<any>(null);
 
   // Build a quadratic bezier arc between the two cities via a point above the Earth
   const points = useMemo(() => {

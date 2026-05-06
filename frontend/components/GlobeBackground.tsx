@@ -161,9 +161,11 @@ export default function GlobeBackground({ userLocation, triggerCity, isInteracti
             <DeckGL
                 views={new GlobeView()}
                 viewState={viewState}
+                // @ts-ignore — deck.gl ViewState type mismatch with useState generic
                 onViewStateChange={({ viewState }) => setViewState(viewState)}
                 controller={isInteractive ? { dragPan: false, dragRotate: true, scrollZoom: true } : false}
                 layers={layers}
+                // @ts-ignore — deck.gl parameters type is intentionally untyped
                 parameters={{
                     clearColor: [0.0, 0.0, 0.0, 0.0] // Fully transparent canvas background
                 } as { clearColor: [number, number, number, number] }}

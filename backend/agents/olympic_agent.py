@@ -596,8 +596,9 @@ Always use conditional phrasing.
                             )
                         except Exception as e:
                             print(f"[DB hybrid] inject error: {e}")
-                        finally:
-                            db_inject_in_flight = False
+                        # NOTE: keep db_inject_in_flight=True until turn_complete arrives
+                        # so that output_transcription and model_turn text are suppressed.
+                        # It is reset in the receive loop on turn_complete below.
 
                 try:
                     while True:
@@ -648,7 +649,7 @@ Always use conditional phrasing.
                                     task.add_done_callback(db_tasks.discard)
 
                             # ── Audio output from Gemini → browser ─────────────────
-                            if sc and sc.model_turn:
+                            if sc and sc.model_turn and not db_inject_in_flight:
                                 for part in sc.model_turn.parts:
                                     if part.inline_data and part.inline_data.data:
                                         chunk_count += 1
@@ -669,6 +670,7 @@ Always use conditional phrasing.
 
                             if sc and sc.turn_complete:
                                 print("[Gemini] Turn complete.")
+                                db_inject_in_flight = False  # safe to ungate now
                                 try:
                                     await websocket.send_json({"type": "turn_complete"})
                                 except RuntimeError:

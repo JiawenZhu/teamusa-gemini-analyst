@@ -529,11 +529,12 @@ Always use conditional phrasing.
             # as text. When a full user turn is transcribed, we run it through
             # ask_gemini() (the SQL-backed chat engine) in a thread, then inject
             # the DB-grounded answer back into the live session so Gemini speaks it.
+            db_tasks: set[asyncio.Task] = set()  # outer scope so finally block can cancel them
+
             async def receive_from_gemini():
                 chunk_count = 0
                 pending_transcript: list = []  # accumulate transcript fragments
                 db_inject_lock = asyncio.Lock()
-                db_tasks: set[asyncio.Task] = set()  # track background inject tasks
                 db_inject_in_flight = False  # suppress duplicate output_transcription when DB answer is pending
 
                 async def run_db_and_inject(question: str):

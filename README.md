@@ -14,7 +14,7 @@
 
 **Team USA Digital Mirror** is an AI-powered sports analytics platform that finds which Olympic and Paralympic athlete archetype your biometric profile most closely aligns with — then lets you explore 120 years of Team USA history through a premium 3D interactive globe.
 
-> **271,116 athlete records spanning 120 years of Team USA Olympic history.** We believe every young person deserves to see how their own body connects to the athletes who have represented the United States on the world's biggest stage.
+> **271,116 global Olympic records (1896–2016), filtered to 8,108 USA Summer athletes with biometrics.** We believe every young person deserves to see how their own body connects to the athletes who have represented the United States on the world's biggest stage.
 
 ### Core Experience
 
@@ -170,7 +170,7 @@ Open **https://teamusa-8b1ba.web.app** and follow these steps:
 #### 1. Biometric Matching (Olympic)
 - Enter **Height: 178 cm**, **Weight: 72 kg**, **Age: 25**
 - Click **"Find My Archetype"**
-- ✅ Expect: a named archetype card appears with medal rate, top sports, and closest historical athletes
+- ✅ Expect: a named archetype card appears with medal rate, top sports, and closest anonymized historical records
 
 #### 2. Paralympic Mode
 - Toggle the **Paralympic** switch (top of the page)
@@ -356,11 +356,4 @@ All Gemini-generated responses in this application are governed by explicit syst
 
 ## 📄 License
 
-
----
-
-## 🏆 Hackathon
-
-Built for the **[Vibe Code for Gold with Google Hackathon](https://vibecodeforgoldwithgoogle.devpost.com/)** — Challenge 4: The Athlete Archetype Agent.
-
-*Data: [Olympic History 1896–2016](https://github.com/rgriff23/Olympic_history) (MIT License). All data is aggregate and historical.*
+Apache License 2.0 — see [LICENSE](LICENSE).

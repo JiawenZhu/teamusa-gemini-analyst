@@ -58,34 +58,51 @@ def get_public_athletes(
     limit: int = Query(50, ge=1, le=100),
 ):
     """Returns aggregate biometric stats — NO individual names or IDs."""
-    base = """
+    where = "WHERE height_cm IS NOT NULL AND weight_kg IS NOT NULL"
+    params: list = []
+
+    if noc:
+        where += " AND noc = %s"
+        params.append(noc.upper())
+    if sport:
+        where += " AND sport ILIKE %s"
+        params.append(f"%{sport}%")
+    if sex:
+        where += " AND sex = %s"
+        params.append(sex.upper())
+
+    data_sql = f"""
         SELECT sport, noc, sex,
                ROUND(AVG(height_cm)::numeric, 1) AS avg_height_cm,
                ROUND(AVG(weight_kg)::numeric, 1) AS avg_weight_kg,
                COUNT(DISTINCT id)               AS athlete_count
         FROM v_results_full
-        WHERE height_cm IS NOT NULL AND weight_kg IS NOT NULL
+        {where}
+        GROUP BY sport, noc, sex
+        ORDER BY sport ASC, noc ASC
+        LIMIT %s OFFSET %s
     """
-    count = "SELECT COUNT(*) AS count FROM (SELECT DISTINCT sport, noc, sex FROM v_results_full WHERE height_cm IS NOT NULL AND weight_kg IS NOT NULL"
-    params = []
+    count_sql = f"""
+        SELECT COUNT(*) AS count FROM (
+            SELECT sport, noc, sex
+            FROM v_results_full
+            {where}
+            GROUP BY sport, noc, sex
+        ) sub
+    """
+    offset = (page - 1) * limit
 
-    if noc:
-        base  += " AND noc = %s"
-        count += " AND noc = %s"
-        params.append(noc.upper())
-    if sport:
-        base  += " AND sport ILIKE %s"
-        count += " AND sport ILIKE %s"
-        params.append(f"%{sport}%")
-    if sex:
-        base  += " AND sex = %s"
-        count += " AND sex = %s"
-        params.append(sex.upper())
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(count_sql, params)
+            total = cur.fetchone()["count"]
+            cur.execute(data_sql, params + [limit, offset])
+            data = [dict(r) for r in cur.fetchall()]
 
-    base  += " GROUP BY sport, noc, sex ORDER BY sport ASC, noc ASC"
-    count += ") AS sub"
-
-    return _paginate(base, count, params, page, limit)
+    return {
+        "data": data,
+        "meta": {"total_count": total, "page": page, "limit": limit, "has_more": offset + limit < total},
+    }
 
 
 @router.get(
@@ -105,39 +122,55 @@ def get_public_results(
     limit: int = Query(50, ge=1, le=100),
 ):
     """Returns aggregate medal counts — NO individual athlete rows."""
-    base = """
+    where = "WHERE 1=1"
+    params: list = []
+
+    if noc:
+        where += " AND noc = %s"
+        params.append(noc.upper())
+    if year:
+        where += " AND year = %s"
+        params.append(year)
+    if medal:
+        where += " AND medal = %s"
+        params.append(medal.capitalize())
+    if sport:
+        where += " AND sport ILIKE %s"
+        params.append(f"%{sport}%")
+
+    data_sql = f"""
         SELECT sport, event, noc, year, season, city,
                SUM(CASE WHEN medal = 'Gold'   THEN 1 ELSE 0 END) AS gold,
                SUM(CASE WHEN medal = 'Silver' THEN 1 ELSE 0 END) AS silver,
                SUM(CASE WHEN medal = 'Bronze' THEN 1 ELSE 0 END) AS bronze,
                COUNT(CASE WHEN medal IS NOT NULL THEN 1 END)      AS total_medals
         FROM v_results_full
-        WHERE 1=1
+        {where}
+        GROUP BY sport, event, noc, year, season, city
+        ORDER BY year DESC, sport ASC
+        LIMIT %s OFFSET %s
     """
-    count = "SELECT COUNT(*) AS count FROM (SELECT 1 FROM v_results_full WHERE 1=1"
-    params = []
+    count_sql = f"""
+        SELECT COUNT(*) AS count FROM (
+            SELECT sport, event, noc, year, season, city
+            FROM v_results_full
+            {where}
+            GROUP BY sport, event, noc, year, season, city
+        ) sub
+    """
+    offset = (page - 1) * limit
 
-    if noc:
-        base  += " AND noc = %s"
-        count += " AND noc = %s"
-        params.append(noc.upper())
-    if year:
-        base  += " AND year = %s"
-        count += " AND year = %s"
-        params.append(year)
-    if medal:
-        base  += " AND medal = %s"
-        count += " AND medal = %s"
-        params.append(medal.capitalize())
-    if sport:
-        base  += " AND sport ILIKE %s"
-        count += " AND sport ILIKE %s"
-        params.append(f"%{sport}%")
+    with get_db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(count_sql, params)
+            total = cur.fetchone()["count"]
+            cur.execute(data_sql, params + [limit, offset])
+            data = [dict(r) for r in cur.fetchall()]
 
-    base  += " GROUP BY sport, event, noc, year, season, city ORDER BY year DESC, sport ASC"
-    count += ") AS sub"
-
-    return _paginate(base, count, params, page, limit)
+    return {
+        "data": data,
+        "meta": {"total_count": total, "page": page, "limit": limit, "has_more": offset + limit < total},
+    }
 
 
 @router.get("/games", description="All Olympic Games with aggregate athlete and nation counts. No individual data.")

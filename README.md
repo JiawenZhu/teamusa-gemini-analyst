@@ -3,7 +3,7 @@
 > **Built for the [Team USA × Google Cloud Hackathon](https://vibecodeforgoldwithgoogle.devpost.com/) — Challenge 4: The Athlete Archetype Agent**
 
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![CI](https://github.com/JiawenZhu/teamusa-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/JiawenZhu/teamusa-oracle/actions/workflows/ci.yml)
+[![CI](https://github.com/JiawenZhu/teamusa-gemini-analyst/actions/workflows/ci.yml/badge.svg)](https://github.com/JiawenZhu/teamusa-gemini-analyst/actions/workflows/ci.yml)
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run%20%7C%20SQL%20%7C%20Gemini-4285F4?logo=google-cloud)](https://cloud.google.com)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
@@ -116,8 +116,8 @@ Both models use the famous [120 Years of Olympic History Kaggle Dataset](https:/
 ### Clone & Install
 
 ```bash
-git clone https://github.com/JiawenZhu/teamusa-oracle.git
-cd teamusa-oracle
+git clone https://github.com/JiawenZhu/teamusa-gemini-analyst.git
+cd teamusa-gemini-analyst
 npm install          # installs concurrently for the dev script
 cd frontend && npm install && cd ..
 cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && cd ..

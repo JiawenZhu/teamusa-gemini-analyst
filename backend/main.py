@@ -23,10 +23,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from data.public_data import load_data, get_dataset_stats, get_all_archetypes, match_biometrics, get_timeline_data, match_para_biometrics, get_para_archetypes
-from db import api_routes
-# NOTE: public_api (individual athlete endpoints) intentionally disabled for submission
-# Individual athlete data exposure violates hackathon rules — aggregate endpoints only
-# from db import public_api
+from db import api_routes, public_api  # public_api: aggregate-only endpoints, no individual athlete data
 from agents.olympic_agent import ask_gemini
 from agents.gemini_tts import synthesize_text_to_wav_b64, synthesize_sentence_to_wav_b64
 
@@ -77,8 +74,7 @@ app.add_middleware(
 )
 
 app.include_router(api_routes.router)
-# public_api router disabled — individual athlete endpoints not exposed in production
-# app.include_router(public_api.router)
+app.include_router(public_api.router)  # aggregate-only: no individual names/IDs exposed
 
 
 # ── Models ────────────────────────────────────────────────────────────────────

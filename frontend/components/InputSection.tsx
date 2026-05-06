@@ -19,6 +19,14 @@ export function InputSection({
   const isOlympic = mode === "olympic";
   const accent = isOlympic ? "#C9A227" : "#818CF8"; // gold vs purple-blue for para
 
+  const hNum = Number(h);
+  const wNum = Number(w);
+  const aNum = Number(age);
+  const isInvalidH = h !== "" && (hNum < 120 || hNum > 250);
+  const isInvalidW = w !== "" && (wNum < 30 || wNum > 200);
+  const isInvalidA = age !== "" && (aNum < 12 || aNum > 100);
+  const hasErrors = isInvalidH || isInvalidW || isInvalidA;
+
   return (
     <section id={id || "mirror-input"} style={{ maxWidth: 640, margin: "0 auto", padding: "0 24px 64px" }}>
       {!hideHeader && (
@@ -75,45 +83,63 @@ export function InputSection({
             borderRadius: 10, fontSize: 13, color: "#a5b4fc", lineHeight: 1.5,
           }}
         >
-          <strong style={{ color: "#818CF8" }}>♿ Paralympic Mode</strong> — Your measurements will be matched against Paralympic athlete profiles across 13 sports. LA 2028 will host both the Olympic and Paralympic Games.
+          <strong style={{ color: "#818CF8" }}>♿ Paralympic Mode</strong> — Your measurements will be matched against Paralympic athlete profiles across 13 sports. The LA28 Games will host both the Olympic and Paralympic Games.
         </motion.div>
       )}
 
       <div style={{ background: "var(--bg-card)", border: `1px solid ${isOlympic ? "#1E293B" : "rgba(129,140,248,0.2)"}`, borderRadius: 20, padding: 32, transition: "border-color 0.3s" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 8 }}>
           {[
-            { label: "Height (cm)", val: h, set: setH, placeholder: "e.g. 178", id: "input-h" },
-            { label: "Weight (kg)", val: w, set: setW, placeholder: "e.g. 75",  id: "input-w" },
-            { label: "Age (opt.)",  val: age, set: setAge, placeholder: "e.g. 28", id: "input-a" },
-          ].map(({ label, val, set, placeholder, id }) => (
+            { label: "Height (cm)", val: h, set: setH, placeholder: "e.g. 178", id: "input-h", error: isInvalidH, errMsg: "120-250cm" },
+            { label: "Weight (kg)", val: w, set: setW, placeholder: "e.g. 75",  id: "input-w", error: isInvalidW, errMsg: "30-200kg" },
+            { label: "Age (opt.)",  val: age, set: setAge, placeholder: "e.g. 28", id: "input-a", error: isInvalidA, errMsg: "12-100yrs" },
+          ].map(({ label, val, set, placeholder, id, error, errMsg }) => (
             <div key={id}>
-              <label htmlFor={id} style={{ display: "block", fontSize: 11, color: "var(--text-sub)", fontWeight: 700, letterSpacing: "0.08em", marginBottom: 6 }}>{label.toUpperCase()}</label>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                <label htmlFor={id} style={{ fontSize: 11, color: "var(--text-sub)", fontWeight: 700, letterSpacing: "0.08em" }}>{label.toUpperCase()}</label>
+                {error && <span style={{ fontSize: 10, color: "#EF4444", fontWeight: 700 }}>{errMsg}</span>}
+              </div>
               <input id={id} type="number" value={val}
                 onChange={e => set(e.target.value)}
                 placeholder={placeholder}
-                style={{ width: "100%", background: "var(--bg-main)", border: "1px solid #1E293B", borderRadius: 10, padding: "10px 14px", color: "var(--text-main)", fontSize: 15, outline: "none" }}
+                style={{ 
+                  width: "100%", background: "var(--bg-main)", 
+                  border: `1px solid ${error ? "#EF4444" : "#1E293B"}`, 
+                  borderRadius: 10, padding: "10px 14px", 
+                  color: error ? "#EF4444" : "var(--text-main)", 
+                  fontSize: 15, outline: "none",
+                  transition: "border-color 0.2s"
+                }}
               />
             </div>
           ))}
         </div>
+        
+        {hasErrors && (
+          <div style={{ fontSize: 12, color: "#EF4444", textAlign: "center", marginBottom: 12, fontWeight: 600 }}>
+            Please enter values within realistic ranges to ensure accurate database matching.
+          </div>
+        )}
+        {!hasErrors && <div style={{ height: 26 }} />} {/* Spacer */}
+
         <button
           id="match-btn"
           onClick={doMatch}
-          disabled={matching || !h || !w}
+          disabled={matching || !h || !w || hasErrors}
           style={{
             width: "100%", padding: "14px 0", borderRadius: 12, fontWeight: 800, fontSize: 16,
-            background: matching || !h || !w
+            background: matching || !h || !w || hasErrors
               ? "var(--border-color)"
               : isOlympic
                 ? "linear-gradient(135deg, #C9A227, #B8860B)"
                 : "linear-gradient(135deg, #818CF8, #6366F1)",
-            color: matching || !h || !w ? "var(--text-sub)" : isOlympic ? "var(--bg-main)" : "#fff",
+            color: matching || !h || !w || hasErrors ? "var(--text-sub)" : isOlympic ? "var(--bg-main)" : "#fff",
             border: "none",
-            cursor: matching || !h || !w ? "not-allowed" : "pointer",
+            cursor: matching || !h || !w || hasErrors ? "not-allowed" : "pointer",
             transition: "all 0.2s",
-            boxShadow: matching || !h || !w ? "none" : `0 4px 14px ${isOlympic ? "rgba(201,162,39,0.4)" : "rgba(129,140,248,0.4)"}`,
+            boxShadow: matching || !h || !w || hasErrors ? "none" : `0 4px 14px ${isOlympic ? "rgba(201,162,39,0.4)" : "rgba(129,140,248,0.4)"}`,
           }}
-          onMouseDown={e => { if (!matching && h && w) e.currentTarget.style.transform = "scale(0.98)" }}
+          onMouseDown={e => { if (!matching && h && w && !hasErrors) e.currentTarget.style.transform = "scale(0.98)" }}
           onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
           onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
         >

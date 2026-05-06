@@ -223,6 +223,52 @@ def get_bmi_by_sport(noc=None, year=None):
             cur.execute(query, params)
             return [clean_row(r) for r in cur.fetchall()]
 
+import re as _re
+
+def _rewrite_having_aliases(sql: str) -> str:
+    """
+    PostgreSQL does not allow referencing SELECT-level column aliases in HAVING.
+    e.g.  SELECT AVG(height_cm) AS avg_h ... HAVING avg_h IS NOT NULL  → ERROR
+
+    Fix: when HAVING references an alias name that appears in the SELECT list,
+    wrap the whole query in a subquery so the outer HAVING can see the alias.
+
+    SELECT * FROM (<original_sql>) AS _sub
+    WHERE <having_conditions using aliases>
+    This is only applied when a potential alias reference is detected.
+    Safe to call on any SQL — if the pattern is not matched the original is returned.
+    """
+    upper = sql.upper()
+    # Only act when there is a HAVING clause
+    having_match = _re.search(r'\bHAVING\b', upper)
+    if not having_match:
+        return sql
+
+    # Extract alias names defined in the SELECT clause (AS <name>)
+    alias_names = {m.group(1).lower() for m in _re.finditer(r'\bAS\s+(\w+)', sql, _re.IGNORECASE)}
+    if not alias_names:
+        return sql
+
+    # Extract the HAVING clause text
+    having_start = having_match.start()
+    having_clause = sql[having_start:]  # everything from HAVING onward
+
+    # Check if HAVING references any alias
+    having_lower = having_clause.lower()
+    uses_alias = any(_re.search(r'\b' + _re.escape(alias) + r'\b', having_lower)
+                     for alias in alias_names)
+    if not uses_alias:
+        return sql
+
+    # Rewrite: wrap in subquery, convert HAVING → WHERE on outer query
+    inner_sql = sql[:having_start].rstrip().rstrip(',')
+    # Replace HAVING with WHERE on the outside
+    outer_condition = _re.sub(r'^\s*HAVING\s+', 'WHERE ', having_clause, flags=_re.IGNORECASE)
+    rewritten = f"SELECT * FROM ({inner_sql}) AS _sub {outer_condition}"
+    print(f"⚙️  SQL rewritten (HAVING alias fix): {rewritten[:160]}...")
+    return rewritten
+
+
 # Write/destructive SQL operations that are never permitted
 _SQL_WRITE_BLOCKLIST = {
     "DROP", "DELETE", "UPDATE", "INSERT", "CREATE", "ALTER", "TRUNCATE",
@@ -259,6 +305,8 @@ def execute_dynamic_query(sql: str, params=None):
             try:
                 # 3. Hard 5-second timeout — kills any runaway query server-side
                 cur.execute("SET LOCAL statement_timeout = '5s'")
+                # 4. Rewrite HAVING alias references (PostgreSQL forbids them)
+                sql = _rewrite_having_aliases(sql)
                 if params:
                     cur.execute(sql, params)
                 else:

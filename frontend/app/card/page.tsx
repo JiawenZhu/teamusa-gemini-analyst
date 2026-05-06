@@ -21,9 +21,9 @@ export async function generateMetadata({ searchParams }: { searchParams: { [key:
 
   return {
     title: `My TeamUSA Archetype: ${arch}`,
-    description: `I just matched with the ${arch} archetype in the TeamUSA Gemini Analyst. Discover your athletic DNA!`,
+    description: `My biometric profile aligns with the ${arch} archetype across 120 years of Team USA history. Find yours!`,
     openGraph: {
-      title: `TeamUSA Athletic DNA: ${arch}`,
+      title: `TeamUSA Archetype Profile: ${arch}`,
       description: `Matched with ${arch} based on 120 years of Team USA history.`,
       images: [
         {
@@ -35,8 +35,8 @@ export async function generateMetadata({ searchParams }: { searchParams: { [key:
     },
     twitter: {
       card: "summary_large_image",
-      title: `TeamUSA Athletic DNA: ${arch}`,
-      description: `I just matched with the ${arch} archetype in the TeamUSA Gemini Analyst.`,
+      title: `TeamUSA Archetype Profile: ${arch}`,
+      description: `My biometric profile aligns with the ${arch} archetype in the TeamUSA Gemini Analyst.`,
       images: [ogUrl.toString()],
     },
   };

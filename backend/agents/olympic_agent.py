@@ -94,13 +94,26 @@ def get_custom_sql_data(sql: str):
     AGGREGATE ONLY: Queries must return aggregate statistics (counts, averages, totals).
     Do NOT write queries that SELECT individual athlete names or personal profiles.
 
+    POSTGRESQL HAVING RULE — CRITICAL:
+    PostgreSQL does NOT allow column aliases in HAVING clauses. NEVER write:
+      HAVING avg_height_cm IS NOT NULL   ← ERROR: alias not allowed in HAVING
+    Instead, filter NULLs in WHERE BEFORE grouping, or repeat the expression:
+      WHERE height_cm IS NOT NULL AND weight_kg IS NOT NULL  ← CORRECT
+      HAVING AVG(height_cm) > 0                              ← CORRECT (repeat expression)
+    For BMI/biometric queries, ALWAYS filter nulls in WHERE, not HAVING.
+
     Examples:
       SELECT COUNT(*) FROM v_results_full WHERE noc='USA' AND year=2012 AND medal IS NOT NULL
       SELECT COUNT(*) FROM v_results_full WHERE noc='USA' AND year BETWEEN 2008 AND 2012 AND medal IS NOT NULL
       SELECT sport, COUNT(*) as medals FROM v_results_full WHERE noc='USA' AND medal IS NOT NULL GROUP BY sport ORDER BY medals DESC LIMIT 5
       SELECT year, COUNT(*) as golds FROM v_results_full WHERE medal='Gold' AND noc='USA' GROUP BY year ORDER BY year
+      SELECT sport, AVG(height_cm) AS avg_height_cm, AVG(weight_kg) AS avg_weight_kg
+        FROM v_results_full
+        WHERE noc='USA' AND height_cm IS NOT NULL AND weight_kg IS NOT NULL
+        GROUP BY sport ORDER BY avg_weight_kg DESC LIMIT 5
     """
     return queries.execute_dynamic_query(sql)
+
 
 
 # Side-channel storage: automatic function calling handles the tool loop internally,
@@ -153,14 +166,31 @@ TOOLS = [
 ]
 
 
-SYSTEM_PROMPT = """You are the Team USA Gemini Analyst — a precise, data-driven AI analyst with access to a real Olympic database containing 271,116 rows of verified historical records (1896–2016 Summer Olympic Games, public Kaggle dataset).
+def _load_system_prompt() -> str:
+    """Load system prompt from the versioned prompts/system_prompt.md file."""
+    prompt_path = os.path.join(os.path.dirname(__file__), "..", "prompts", "system_prompt.md")
+    try:
+        with open(os.path.normpath(prompt_path), "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        raise RuntimeError(
+            f"System prompt not found at {prompt_path}. "
+            "Ensure backend/prompts/system_prompt.md exists."
+        )
+
+
+SYSTEM_PROMPT = _load_system_prompt()
+
+
+# ── LEGACY INLINE COPY (kept as reference, not used) ────────────────────────
+_SYSTEM_PROMPT_INLINE_LEGACY = """You are the Team USA Gemini Analyst — a precise, data-driven AI analyst with access to a real Olympic database containing 271,116 rows of verified historical records (1896–2016 Olympic Games, public Kaggle dataset).
 
 ═══ PRIVACY & ATTRIBUTION RULES (HIGHEST PRIORITY — NEVER OVERRIDE) ═══
 
 • NO INDIVIDUAL ATHLETES: Never name, profile, quote, or describe any specific living or deceased athlete. Do not reference personal biometrics, finish times, specific scores, or individual career histories.
 • AGGREGATE ONLY: Refer exclusively to aggregate Team USA records, era-level patterns, sport-level statistics, and anonymized historical trends.
 • NO LIKENESSES: Do not describe an athlete's appearance, style, or personal story.
-• DATA WINDOW: This dataset covers Summer Olympic Games through the 2016 Rio Games. If asked about 2020, 2024, or 2028, clearly state: "Our records go up to the 2016 Rio Games — we don't have data for that period yet."
+• DATA WINDOW: This dataset covers Olympic Games through the 2016 Rio Games. If asked about 2020, 2024, or 2028, clearly state: "Our records go up to the 2016 Rio Games — we don't have data for that period yet."
 • CONDITIONAL LANGUAGE: When connecting user biometrics to historical patterns, always use conditional phrasing: "athletes with similar builds have historically tended to…" not "you are exactly like…" or "legends share your build."
 
 ═══ YOUR THINKING PROCESS ═══
@@ -212,6 +242,16 @@ For EVERY question, follow this exact sequence:
    • If the user asks about a named athlete, decline politely and offer aggregate data instead:
      "I can't provide individual athlete profiles, but I can tell you how Team USA performed in [sport] in [year] overall."
 
+14. POSTGRESQL HAVING RULE — NEVER use SELECT aliases in HAVING:
+    PostgreSQL does NOT allow referencing a column alias from SELECT inside HAVING.
+    ❌ BAD:  SELECT AVG(height_cm) AS avg_h ... HAVING avg_h IS NOT NULL
+    ✅ GOOD: Filter nulls in WHERE before grouping:
+             WHERE height_cm IS NOT NULL AND weight_kg IS NOT NULL
+    ✅ GOOD: Repeat the full expression in HAVING if needed:
+             HAVING AVG(weight_kg) > 0
+    For ALL biometric / BMI queries, ALWAYS filter height_cm IS NOT NULL AND weight_kg IS NOT NULL in the WHERE clause, never in HAVING.
+
+
 5. EMPTY RESULTS: If a tool returns 0 rows or empty, report that honestly:
    "Our dataset has no records for [X]." Do NOT hallucinate or guess.
 
@@ -222,10 +262,10 @@ For EVERY question, follow this exact sequence:
    ✅ "According to our records..."
    ✅ "Our Olympic database shows..."
    ✅ "Based on the data we have..."
-   ✅ "Historically, across all Summer Games in our database..."
+   ✅ "Historically, across all Olympic Games in our database..."
    ❌ "Based on the Olympic records available from 1896 to 2016..."
    ❌ "In the 1896–2016 dataset..."
-   The dataset covers Summer Olympic Games through 2016. If a user asks about
+   The dataset covers Olympic Games through 2016. If a user asks about
    more recent Games (2020, 2024), clearly state: "Our records go up to the 2016
    Rio Games — we don't have data for [year] yet."
 
@@ -244,12 +284,33 @@ For EVERY question, follow this exact sequence:
    Call trigger_map_view(city_name) silently — the result will animate the globe for the user.
    Examples: Beijing 2008 → trigger_map_view("Beijing"), Sydney 2000 → trigger_map_view("Sydney")
 
+10. OFFICIAL GAMES TERMINOLOGY — ALWAYS follow these naming rules:
+    Summer Games (non-LA): "Olympic Games [City] [Year]" (e.g., "Olympic Games Beijing 2008", "Olympic Games Atlanta 1996")
+    Winter Games: "Olympic Winter Games [City] [Year]" (e.g., "Olympic Winter Games Lake Placid 1980")
+    Paralympic Winter Games: "Paralympic Winter Games [City] [Year]"
+    2028 Los Angeles Games: "LA28 Games" or "LA28 Olympic and Paralympic Games"
+    NEVER say: "2008 Summer Games", "Summer Olympics", "Winter Olympics", "2008 Summer Olympics"
+    ALLOWED secondary references: "The Winter Olympics" or "[City] [Year]" (e.g., "Beijing 2008")
+
+11. OLYMPIAN / PARALYMPIAN LANGUAGE:
+    Once an athlete is an Olympian or Paralympian, they are ALWAYS one.
+    NEVER use "former Olympian", "past Olympian", "former Paralympian", or "past Paralympian".
+
+12. SPORT NAMES — use official sport names, not NGB names:
+    ✅ "swimming" ❌ "USA Swimming"
+    ✅ "gymnastics" ❌ "USA Gymnastics"
+    ✅ "basketball" ❌ "USA Basketball"
+    ✅ "ice hockey" ❌ "USA Hockey"
+
+13. NO REPEATED ANSWERS — Never repeat or rephrase an answer you already gave in this conversation.
+    If the same question is asked again, acknowledge you already covered it and offer a new angle or related stat.
+
 ═══ DATABASE REFERENCE ═══
 Primary query surface: v_results_full
 Columns: id, name, sex, age, height_cm, weight_kg, noc, team_name,
          year, season, city, sport, event, medal
 medal values: 'Gold' | 'Silver' | 'Bronze' | NULL (did not medal)
-Coverage: Summer Olympic Games (most complete data)
+Coverage: Olympic Games (most complete data)
 USA filter: noc = 'USA'
 """
 
@@ -473,10 +534,13 @@ Always use conditional phrasing.
                 pending_transcript: list = []  # accumulate transcript fragments
                 db_inject_lock = asyncio.Lock()
                 db_tasks: set[asyncio.Task] = set()  # track background inject tasks
+                db_inject_in_flight = False  # suppress duplicate output_transcription when DB answer is pending
 
                 async def run_db_and_inject(question: str):
                     """Run the real SQL engine and inject the grounded answer."""
+                    nonlocal db_inject_in_flight
                     async with db_inject_lock:
+                        db_inject_in_flight = True
                         print(f"[DB hybrid] SQL query for: {question!r}")
                         loop = asyncio.get_event_loop()
                         try:
@@ -501,11 +565,13 @@ Always use conditional phrasing.
                             except Exception:
                                 pass
 
-                        # Send text to browser for display
+                        # Send the DB-grounded answer as the single authoritative text
+                        # (output_transcription is suppressed while db_inject_in_flight to avoid duplication)
                         try:
                             await websocket.send_json({"type": "live_text", "text": answer})
                         except RuntimeError as e:
                             if "Unexpected ASGI message" in str(e):
+                                db_inject_in_flight = False
                                 return  # Client disconnected
                             pass
                         except Exception:
@@ -515,8 +581,9 @@ Always use conditional phrasing.
                         inject_prompt = (
                             f"The database returned this verified answer for '{question}':\n\n"
                             f"{answer}\n\n"
-                            f"Please read this to the user naturally. "
-                            f"Do not add information beyond what is above."
+                            f"Please read this exact answer to the user naturally. "
+                            f"CRITICAL RULES: Do NOT add any filler words. Do NOT ask any follow up questions. "
+                            f"Do NOT repeat yourself. Just read the answer and stop."
                         )
                         try:
                             await session.send_client_content(
@@ -528,6 +595,8 @@ Always use conditional phrasing.
                             )
                         except Exception as e:
                             print(f"[DB hybrid] inject error: {e}")
+                        finally:
+                            db_inject_in_flight = False
 
                 try:
                     while True:
@@ -535,7 +604,9 @@ Always use conditional phrasing.
                             sc = response.server_content
 
                             # ── Output transcript: what the agent is saying ────────
-                            if sc and getattr(sc, "output_transcription", None):
+                            # Suppress when a DB inject is in flight to avoid duplicating
+                            # the grounded answer that was already sent as live_text.
+                            if sc and getattr(sc, "output_transcription", None) and not db_inject_in_flight:
                                 agent_text = getattr(sc.output_transcription, "text", "") or ""
                                 if agent_text.strip():
                                     print(f"[Agent transcript]: {agent_text!r}")
@@ -549,13 +620,22 @@ Always use conditional phrasing.
                                 transcript_text = getattr(sc.input_transcription, "text", "") or ""
                                 if transcript_text.strip():
                                     pending_transcript.append(transcript_text)
-                                    print(f"[User transcript]: {transcript_text!r}")
+                                    print(f"[User transcript chunk]: {transcript_text!r}")
+                                    # Send interim chunk → shows real-time transcription in UI
+                                    try:
+                                        await websocket.send_json({"type": "user_text_interim", "text": transcript_text})
+                                    except RuntimeError:
+                                        return
 
                             # Full user turn transcribed → route through DB
                             if sc and getattr(sc, "input_transcription_complete", False):
                                 full_question = " ".join(pending_transcript).strip()
                                 pending_transcript.clear()
                                 if full_question:
+                                    if db_inject_lock.locked():
+                                        print(f"[User said (ignored, db running)]: {full_question!r}")
+                                        continue
+                                    
                                     print(f"[User said (complete)]: {full_question!r}")
                                     # Send user speech to browser for display in chat overlay
                                     try:
@@ -588,6 +668,10 @@ Always use conditional phrasing.
 
                             if sc and sc.turn_complete:
                                 print("[Gemini] Turn complete.")
+                                try:
+                                    await websocket.send_json({"type": "turn_complete"})
+                                except RuntimeError:
+                                    pass
 
                             # ── Tool calls (map nav + any direct DB calls) ──────────
                             if response.tool_call:

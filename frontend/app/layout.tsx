@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   keywords: ["Team USA", "Olympics", "Paralympics", "Gemini AI", "Google Cloud", "LA28", "athlete"],
   openGraph: {
     title: "TeamUSA Gemini Analyst",
-    description: "Discover your athletic DNA across 120 years of Team USA",
+    description: "Explore 120 years of Team USA Olympic and Paralympic history. Find which historical athlete archetype aligns with your biometric profile.",
     type: "website",
   },
 };

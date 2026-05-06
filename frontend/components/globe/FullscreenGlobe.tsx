@@ -296,7 +296,9 @@ function CityDetailPanel({
               fontSize: 10, color: medalColor, fontWeight: 800,
               textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 5,
             }}>
-              {city.season === 'Winter' ? '❄️ Winter Olympics' : '☀️ Summer Olympics'}
+              {city.season === 'Winter'
+                ? `❄️ Olympic Winter Games ${city.city} ${city.years[0]}`
+                : `☀️ Olympic Games ${city.city} ${city.years[0]}`}
             </div>
             <h2 style={{ margin: 0, fontSize: 26, fontWeight: 900, color: '#f8fafc', letterSpacing: '-0.03em' }}>
               {city.city}
@@ -682,7 +684,11 @@ export default function FullscreenGlobe({
   const [isGenerating, setIsGenerating] = useState(false);
   const [yearRange, setYearRange] = useState<[number, number]>([1896, 2016]);
   const [showFilter, setShowFilter] = useState(false);
-  const [liveMessages, setLiveMessages] = useState<{role: 'agent' | 'user'; text: string}[]>([]);
+  // liveMessages: each entry is a discrete turn. "sealed" means the turn is complete
+  // and the next agent chunk must open a new bubble.
+  const [liveMessages, setLiveMessages] = useState<{role: 'agent' | 'user'; text: string; sealed?: boolean}[]>([]);
+  // interimUserText: real-time streaming preview of what the user is currently saying
+  const [interimUserText, setInterimUserText] = useState<string>('');
 
   const voiceEnabled = voiceAssistant?.voiceEnabled ?? false;
   const micState = voiceAssistant?.micState ?? 'idle';
@@ -696,16 +702,50 @@ export default function FullscreenGlobe({
       const { role, text } = (e as CustomEvent<{role: 'agent' | 'user'; text: string}>).detail;
       if (!text?.trim()) return;
       setLiveMessages(prev => {
-        // If same role as last message, append to it (streaming chunks)
+        // User voice utterances are always complete turns — each gets its own sealed bubble
+        if (role === 'user') {
+          return [...prev, { role, text, sealed: true }];
+        }
+        // Agent: append streaming chunks to the current unsealed bubble, or start new
         const last = prev[prev.length - 1];
-        if (last && last.role === role) {
+        if (last && last.role === 'agent' && !last.sealed) {
           return [...prev.slice(0, -1), { role, text: last.text + text }];
         }
         return [...prev, { role, text }];
       });
     };
+
+    // Seal the current agent bubble when a turn completes
+    // so the next chunk always opens a fresh bubble
+    const onTurnComplete = () => {
+      setLiveMessages(prev => {
+        if (prev.length === 0) return prev;
+        const last = prev[prev.length - 1];
+        if (last.role === 'agent' && !last.sealed) {
+          return [...prev.slice(0, -1), { ...last, sealed: true }];
+        }
+        return prev;
+      });
+    };
+
+    // Listen for real-time interim user transcription chunks
+    const onInterim = (e: Event) => {
+      const detail = (e as CustomEvent<{text: string; clear?: boolean}>).detail;
+      if (detail.clear) {
+        setInterimUserText('');
+      } else {
+        setInterimUserText(prev => prev + detail.text);
+      }
+    };
+
     window.addEventListener('live_text', onText);
-    return () => window.removeEventListener('live_text', onText);
+    window.addEventListener('live_turn_complete', onTurnComplete);
+    window.addEventListener('live_user_interim', onInterim);
+    return () => {
+      window.removeEventListener('live_text', onText);
+      window.removeEventListener('live_turn_complete', onTurnComplete);
+      window.removeEventListener('live_user_interim', onInterim);
+    };
   }, []);
 
   useEffect(() => {
@@ -717,10 +757,11 @@ export default function FullscreenGlobe({
     }
   }, [liveMessages]);
 
-  // Clear chat history when a new voice session starts
+  // Clear chat history and interim text when a new voice session starts
   useEffect(() => {
     if (voiceEnabled) {
       setLiveMessages([]);
+      setInterimUserText('');
     }
   }, [voiceEnabled]);
 
@@ -1045,19 +1086,27 @@ export default function FullscreenGlobe({
                 div::-webkit-scrollbar { display: none; }
               `}</style>
               <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', gap: 14, paddingTop: 60 }}>
-                {liveMessages.length === 0 ? (
+                {liveMessages.length === 0 && !interimUserText ? (
                   <span style={{
                     opacity: 0.3, fontWeight: 400, fontSize: 14,
                     fontStyle: 'italic', color: '#94a3b8', lineHeight: 1.6,
                   }}>Try asking: "Which city has hosted the most Olympics?"</span>
                 ) : (
-                  liveMessages.map((msg, i) => {
+                  <>
+                    {liveMessages.map((msg, i) => {
                     const total = liveMessages.length;
                     const fromEnd = total - 1 - i; // 0 = most recent
                     const opacity = Math.max(0.15, 1 - fromEnd * 0.18);
                     const isLatest = i === total - 1;
                     const prevMsg = i > 0 ? liveMessages[i - 1] : null;
                     const showDivider = prevMsg && prevMsg.role !== msg.role && msg.role === 'agent';
+
+                    // Count which user turn this is (for labeling)
+                    const userTurnIndex = msg.role === 'user'
+                      ? liveMessages.slice(0, i + 1).filter(m => m.role === 'user').length
+                      : 0;
+                    const totalUserTurns = liveMessages.filter(m => m.role === 'user').length;
+                    const showUserTurnLabel = msg.role === 'user' && totalUserTurns > 1;
 
                     return (
                       <div key={i}>
@@ -1081,8 +1130,8 @@ export default function FullscreenGlobe({
                           opacity,
                           transition: 'opacity 0.4s ease',
                         }}>
-                          {/* Role label — only on first of consecutive same-role messages */}
-                          {(i === 0 || liveMessages[i - 1].role !== msg.role) && (
+                          {/* Role label — shown on every user bubble; only on first agent of consecutive run */}
+                          {(msg.role === 'user' || i === 0 || liveMessages[i - 1].role !== msg.role) && (
                             <span style={{
                               fontSize: 9,
                               fontWeight: 600,
@@ -1092,8 +1141,22 @@ export default function FullscreenGlobe({
                               marginBottom: 1,
                               paddingLeft: msg.role === 'agent' ? 2 : 0,
                               paddingRight: msg.role === 'user' ? 2 : 0,
+                              display: 'flex', alignItems: 'center', gap: 5,
                             }}>
                               {msg.role === 'user' ? '🎙 You' : '⚡ AI Analyst'}
+                              {/* Show Q1, Q2… when there are multiple user turns */}
+                              {showUserTurnLabel && (
+                                <span style={{
+                                  fontSize: 8,
+                                  background: 'rgba(148,163,184,0.12)',
+                                  border: '1px solid rgba(148,163,184,0.2)',
+                                  borderRadius: 4,
+                                  padding: '1px 5px',
+                                  letterSpacing: '0.05em',
+                                }}>
+                                  Q{userTurnIndex}
+                                </span>
+                              )}
                             </span>
                           )}
                           <div style={{
@@ -1112,7 +1175,42 @@ export default function FullscreenGlobe({
                         </div>
                       </div>
                     );
-                  })
+                  })}
+
+                  {/* Live interim user transcription bubble — shown while user is speaking */}
+                  {interimUserText && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-end',
+                      gap: 3,
+                    }}>
+                      <span style={{
+                        fontSize: 9, fontWeight: 600, letterSpacing: '0.12em',
+                        textTransform: 'uppercase',
+                        color: 'rgba(148,163,184,0.6)',
+                        paddingRight: 2,
+                      }}>🎙 You</span>
+                      <div style={{
+                        fontSize: 13,
+                        color: 'rgba(226,232,240,0.75)',
+                        lineHeight: 1.7,
+                        fontStyle: 'italic',
+                        maxWidth: '100%',
+                        textAlign: 'right',
+                        padding: '6px 10px',
+                        background: 'rgba(148,163,184,0.08)',
+                        borderRadius: '14px 14px 4px 14px',
+                        border: '1px solid rgba(148,163,184,0.15)',
+                        // Pulsing border to indicate live capture
+                        animation: 'interim-pulse 1.4s ease-in-out infinite',
+                      }}>
+                        {interimUserText}
+                        <span style={{ opacity: 0.5, marginLeft: 4 }}>▋</span>
+                      </div>
+                    </div>
+                  )}
+                  </>
                 )}
               </div>
             </div>
@@ -1137,6 +1235,10 @@ export default function FullscreenGlobe({
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes interim-pulse {
+          0%, 100% { border-color: rgba(148,163,184,0.15); box-shadow: none; }
+          50% { border-color: rgba(148,163,184,0.4); box-shadow: 0 0 8px rgba(148,163,184,0.12); }
         }
       `}</style>
 

@@ -28,7 +28,7 @@ export default function Page() {
   const [result, setResult] = useState<MatchResult | null>(null);
   const [glitchArch, setGlitchArch] = useState<ArchetypeProfile | null>(null);
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
-  const [chat, setChat] = useState<{ role: string; text: string }[]>([]);
+  const [chat, setChat] = useState<{ role: string; text: string; sealed?: boolean }[]>([]);
   const [msg, setMsg] = useState("");
   const [chatLoading, setCL] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -48,6 +48,16 @@ export default function Page() {
   // Stats Modal State
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [pendingChatTopic, setPendingChatTopic] = useState<string | null>(null);
+  const [pendingGlobe, setPendingGlobe] = useState(false);
+
+  const openFullscreenGlobe = () => {
+    if (!result) {
+      setPendingGlobe(true);
+      setShowStatsModal(true);
+    } else {
+      setIsGlobeFullscreen(true);
+    }
+  };
 
   const {
     voiceEnabled,
@@ -65,9 +75,14 @@ export default function Page() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Backend warm-up: fire /health immediately so Cloud Run container is warm
+    // before the user clicks "Find My Archetype". Silent — errors don't surface to UI.
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+    fetch(`${apiUrl}/health`).catch(() => {/* warmup failed — backend may be cold, user will see normal latency */});
+
     fetchStats().then(setStats);
     fetchArchetypes().then(setArchetypes);
-    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"}/api/para-archetypes`)
+    fetch(`${apiUrl}/api/para-archetypes`)
       .then(r => r.json()).then(d => setParaArchetypes(d.archetypes ?? []));
     fetchTimeline().then(setTimeline);
 
@@ -149,21 +164,48 @@ export default function Page() {
   // ── Sync Live API Text to Chat History ──────────────────────────────────────
   useEffect(() => {
     const handleLiveText = (e: any) => {
-      const text = e.detail;
+      // e.detail may be a plain string or { role: string, text: string }
+      const detail = e.detail;
+      const text: string = typeof detail === "string" ? detail : (detail?.text ?? "");
+      const role: string = typeof detail === "object" && detail?.role === "user" ? "user" : "model";
+
+      if (!text) return;
+
       setChat(prev => {
-        let newChat;
-        if (prev.length > 0 && prev[prev.length - 1].role === "model") {
-           const last = prev[prev.length - 1];
-           newChat = [...prev.slice(0, -1), { role: "model", text: last.text + " " + text }];
-        } else {
-           newChat = [...prev, { role: "model", text }];
+        // User voice utterances are always complete — each gets its own sealed bubble.
+        // If the AI has already started responding (last message is unsealed model),
+        // backfill the user bubble before it to maintain correct chronological order.
+        if (role === 'user') {
+          const lastMsg = prev[prev.length - 1];
+          if (lastMsg && lastMsg.role === 'model' && !lastMsg.sealed) {
+            // Backfill: splice user bubble before the in-progress AI response
+            return [...prev.slice(0, -1), { role, text, sealed: true, fromVoice: true }, lastMsg];
+          }
+          return [...prev, { role, text, sealed: true, fromVoice: true }];
         }
-        return newChat;
+
+        // Model: append chunks to the current unsealed bubble, or start a new one
+        if (prev.length > 0 && prev[prev.length - 1].role === role && !prev[prev.length - 1].sealed) {
+           const last = prev[prev.length - 1];
+           return [...prev.slice(0, -1), { role, text: last.text + " " + text }];
+        }
+        return [...prev, { role, text }];
       });
-      // Scroll to bottom after state update
       setTimeout(() => {
         chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: "smooth" });
       }, 50);
+    };
+
+    // Seal the current model bubble when a turn completes
+    const handleTurnComplete = () => {
+      setChat(prev => {
+        if (prev.length === 0) return prev;
+        const last = prev[prev.length - 1];
+        if (last.role === "model" && !last.sealed) {
+          return [...prev.slice(0, -1), { ...last, sealed: true }];
+        }
+        return prev;
+      });
     };
 
     const handleMapTrigger = (e: any) => {
@@ -172,9 +214,11 @@ export default function Page() {
     };
 
     window.addEventListener("live_text", handleLiveText);
+    window.addEventListener("live_turn_complete", handleTurnComplete);
     window.addEventListener("map_trigger", handleMapTrigger);
     return () => {
       window.removeEventListener("live_text", handleLiveText);
+      window.removeEventListener("live_turn_complete", handleTurnComplete);
       window.removeEventListener("map_trigger", handleMapTrigger);
     };
   }, []);
@@ -194,16 +238,8 @@ export default function Page() {
   };
 
 
-  useEffect(() => {
-    const handleMapTrigger = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      if (detail && detail.city) {
-        fireTriggerCity(detail.city, detail.lat || 0, detail.lng || 0);
-      }
-    };
-    window.addEventListener("map_trigger", handleMapTrigger);
-    return () => window.removeEventListener("map_trigger", handleMapTrigger);
-  }, []);
+
+
 
   const doChat = useCallback(async () => {
     if (!msg.trim() || !result) return;
@@ -222,6 +258,7 @@ export default function Page() {
           m,
           result.archetype_id,
           currentChat,
+          { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined },
           async (text) => {
             rendered += (rendered ? " " : "") + text;
             setChat(c => {
@@ -245,7 +282,7 @@ export default function Page() {
         );
       } catch (err) {
         console.warn("Stream failed, falling back:", err);
-        const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, currentChat);
+        const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, currentChat, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
         if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
         setChat(c => {
           const updated = [...c];
@@ -257,12 +294,12 @@ export default function Page() {
       }
     } else {
       // Non-streaming path — use sendChat and extract mapTrigger from response
-      const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, currentChat);
+      const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, currentChat, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
       if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
       setChat(c => [...c, { role: "bot", text: reply }]);
       setCL(false);
     }
-  }, [msg, result, chat, voiceEnabled, playNativeTTS]);
+  }, [msg, result, chat, voiceEnabled, playNativeTTS, h, w, age]);
 
   const bgAccent = result?.archetype?.color || glitchArch?.color || "transparent";
   const accent = result?.archetype?.color || "#C9A227";
@@ -278,7 +315,7 @@ export default function Page() {
           animate={{ opacity: 1, y: 0, x: "-50%" }}
           exit={{ opacity: 0, y: 30, x: "-50%" }}
           onClick={() => {
-            setIsGlobeFullscreen(true);
+            openFullscreenGlobe();
             setGlobeToast(null);
           }}
           style={{
@@ -364,6 +401,11 @@ export default function Page() {
                         document.getElementById('chat-panel')?.scrollIntoView({ behavior: "smooth", block: "center" });
                       }, 3500);
                       setPendingChatTopic(null);
+                    } else if (pendingGlobe) {
+                      setTimeout(() => {
+                        setIsGlobeFullscreen(true);
+                      }, 3500);
+                      setPendingGlobe(false);
                     }
                   }}
                   mode={mode} setMode={setMode}
@@ -387,7 +429,7 @@ export default function Page() {
 
         <FeaturesNav 
           onOpenModal={() => setShowStatsModal(true)} 
-          onOpenFullscreenMap={() => setIsGlobeFullscreen(true)} 
+          onOpenFullscreenMap={openFullscreenGlobe} 
         />
 
         {/* ── SHARED VIEW BANNER ───────────────────────────────────── */}
@@ -441,12 +483,12 @@ export default function Page() {
             
             {/* LEFT PANEL — Input UI */}
             <div style={{ flex: "0 0 360px", minWidth: 280 }}>
-              <p style={{ fontSize: 11, letterSpacing: 3, color: "#4a7fa5", textTransform: "uppercase", marginBottom: 12, fontWeight: 600 }}>🏅 LA 2028 DISTANCE TRACKER</p>
+              <p style={{ fontSize: 11, letterSpacing: 3, color: "#4a7fa5", textTransform: "uppercase", marginBottom: 12, fontWeight: 600 }}>🏅 LA28 GAMES DISTANCE TRACKER</p>
               <h2 style={{ fontSize: 32, fontWeight: 800, color: "white", lineHeight: 1.2, marginBottom: 8 }}>
                 Where will you<br/><span style={{ color: "#FFD700" }}>cheer from?</span>
               </h2>
               <p style={{ fontSize: 15, color: "#6b8fa8", marginBottom: 28, lineHeight: 1.6 }}>
-                Enter your city to see how far you are from the 2028 Los Angeles Olympics.
+                Enter your city to see how far you are from the LA28 Olympic and Paralympic Games.
               </p>
 
               <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
@@ -497,7 +539,7 @@ export default function Page() {
                   animate={{ opacity: 1, y: 0 }}
                   style={{ padding: "20px", background: "rgba(255,215,0,0.07)", borderRadius: 12, border: "1px solid rgba(255,215,0,0.2)" }}
                 >
-                  <p style={{ color: "#8baec7", fontSize: 13, marginBottom: 4 }}>From {locationData.city} to LA 2028</p>
+                  <p style={{ color: "#8baec7", fontSize: 13, marginBottom: 4 }}>From {locationData.city} to the LA28 Games</p>
                   <p style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", lineHeight: 1 }}>
                     {locationData.distance_miles.toLocaleString()}
                     <span style={{ fontSize: 16, fontWeight: 400, color: "#a0aec0", marginLeft: 8 }}>miles</span>
@@ -518,7 +560,7 @@ export default function Page() {
             {/* RIGHT PANEL — The 3D Globe */}
             <div
               style={{ flex: 1, minWidth: 320, height: 520, position: "relative", cursor: "zoom-in" }}
-              onDoubleClick={() => setIsGlobeFullscreen(true)}
+              onDoubleClick={openFullscreenGlobe}
               title="Double-click to open immersive globe"
             >
               <GlobeScene
@@ -624,7 +666,7 @@ export default function Page() {
                 return;
               }
               setIsGlobeFullscreen(false);
-              setMsg(`Tell me more about Team USA in ${topic}`);
+              setMsg(`Tell me about Team USA in ${topic}, and how my archetype (${result.archetype.name}) connects to the athletes or sports there.`);
               setTimeout(() => {
                 document.getElementById('chat-panel')?.scrollIntoView({ behavior: "smooth", block: "center" });
               }, 400);

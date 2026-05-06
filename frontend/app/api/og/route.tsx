@@ -50,7 +50,7 @@ export async function GET(req: NextRequest) {
               </span>
             </div>
             <div style={{ fontSize: "20px", fontWeight: 700, color: "rgba(255,255,255,0.5)" }}>
-              🏅 ATHLETIC DNA CARD
+              🏅 ARCHETYPE PROFILE CARD
             </div>
           </div>
 

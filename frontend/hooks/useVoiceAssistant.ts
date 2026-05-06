@@ -30,6 +30,8 @@ export function useVoiceAssistant() {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [micState, setMicState] = useState<MicState>("idle");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  // Ref mirrors isSpeaking so the AudioWorklet closure (stale) can read it
+  const isSpeakingRef = useRef(false);
 
   // Session ref — the live session object from @google/genai
   const sessionRef = useRef<any>(null);
@@ -72,8 +74,12 @@ export function useVoiceAssistant() {
     nextPlayTimeRef.current = startTime + audioBuffer.duration;
 
     setIsSpeaking(true);
+    isSpeakingRef.current = true;
     source.onended = () => {
-      if (nextPlayTimeRef.current <= ctx.currentTime + 0.05) setIsSpeaking(false);
+      if (nextPlayTimeRef.current <= ctx.currentTime + 0.05) {
+        setIsSpeaking(false);
+        isSpeakingRef.current = false;
+      }
     };
   }, []);
 
@@ -178,9 +184,19 @@ export function useVoiceAssistant() {
             if (payload.type === "live_text") {
               console.log("🤖 Gemini:", payload.text);
               window.dispatchEvent(new CustomEvent("live_text", { detail: { role: "agent", text: payload.text } }));
+            } else if (payload.type === "user_text_interim") {
+              // Real-time user transcription chunks — display as a live preview bubble
+              window.dispatchEvent(new CustomEvent("live_user_interim", { detail: { text: payload.text } }));
             } else if (payload.type === "user_text") {
-              console.log("🎙️ User:", payload.text);
+              // Final complete user utterance — commit to permanent chat history
+              console.log("🎙️ User (complete):", payload.text);
+              window.dispatchEvent(new CustomEvent("live_user_interim", { detail: { text: "", clear: true } }));
               window.dispatchEvent(new CustomEvent("live_text", { detail: { role: "user", text: payload.text } }));
+            } else if (payload.type === "turn_complete") {
+              // AI finished speaking — ungate microphone and signal UI to seal the bubble
+              isSpeakingRef.current = false;
+              setIsSpeaking(false);
+              window.dispatchEvent(new CustomEvent("live_turn_complete"));
             } else if (payload.type === "map_trigger") {
               window.dispatchEvent(new CustomEvent("map_trigger", { detail: payload }));
             } else if (payload.type === "status") {
@@ -259,6 +275,11 @@ export function useVoiceAssistant() {
 
       workletNode.port.onmessage = (e) => {
         if (!sessionRef.current || ws.readyState !== WebSocket.OPEN) return;
+
+        // ── SOFTWARE ECHO GATE ─────────────────────────────────────────────────
+        // While the AI is playing audio, do NOT send mic data back to the server.
+        // This prevents the model from hearing its own voice and repeating itself.
+        if (isSpeakingRef.current) return;
 
         const floatData = e.data as Float32Array;
 

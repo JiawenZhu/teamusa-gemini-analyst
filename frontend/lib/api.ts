@@ -66,14 +66,28 @@ export async function registerLocation(city_name: string, session_id?: string): 
 export async function fetchTimeline(): Promise<TimelinePoint[]> {
   return fetch(`${API}/api/timeline`).then(r => r.json()).then(d => d.athletes || []);
 }
+export interface ChatContext {
+  height_cm?: number;
+  weight_kg?: number;
+  age?: number;
+}
+
 export async function sendChat(
   message: string,
   archetype_id: string,
-  history: { role: string; text: string }[] = []
+  history: { role: string; text: string }[] = [],
+  user_context?: ChatContext
 ): Promise<{ text: string; mapTrigger?: { city: string; lat: number; lng: number } }> {
   const d = await fetch(`${API}/api/chat`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, archetype_id, history }),
+    body: JSON.stringify({ 
+      message, 
+      archetype_id, 
+      history,
+      user_height_cm: user_context?.height_cm,
+      user_weight_kg: user_context?.weight_kg,
+      user_age: user_context?.age
+    }),
   }).then(r => r.json());
   return { text: d.response || "", mapTrigger: d.mapTrigger };
 }
@@ -94,6 +108,7 @@ export async function sendChatStream(
   message: string,
   archetype_id: string,
   history: { role: string; text: string }[],
+  user_context: ChatContext | undefined,
   onChunk: (text: string, audio: string | null, index: number) => void,
   onDone: (fullText: string) => void,
   signal?: AbortSignal,
@@ -102,7 +117,14 @@ export async function sendChatStream(
   const res = await fetch(`${API}/api/chat-stream`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message, archetype_id, history }),
+    body: JSON.stringify({ 
+      message, 
+      archetype_id, 
+      history,
+      user_height_cm: user_context?.height_cm,
+      user_weight_kg: user_context?.weight_kg,
+      user_age: user_context?.age
+    }),
     signal,
   });
 

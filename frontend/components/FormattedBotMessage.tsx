@@ -128,6 +128,7 @@ function NumberedSportCard({
 // Gemini sometimes outputs "1. **Foo:** desc. 2. **Bar:** desc. 3. …" on a single line.
 // We split these into separate lines so each becomes its own block.
 function splitInlineNumberedList(text: string): string {
+  if (!text || typeof text !== "string") return String(text || "");
   // Match "N. " that appears mid-sentence (not at start of line), preceded by a period or content
   return text.replace(/([^\n])(\s+)(\d+\.\s)/g, "$1\n\n$3");
 }

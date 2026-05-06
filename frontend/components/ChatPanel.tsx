@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Sparkles, Volume2, VolumeX, Mic, MicOff, ArrowUp, User } from "lucide-react";
 import type { MatchResult } from "@/lib/api";
 import { FormattedBotMessage } from "./FormattedBotMessage";
+import { AIGuidelinesPanel } from "./AIGuidelinesPanel";
 
 export function ChatPanel({
   result,
@@ -21,7 +22,7 @@ export function ChatPanel({
   chatContainerRef,
 }: {
   result: MatchResult | null;
-  chat: { role: string; text: string }[];
+  chat: { role: string; text: string; sealed?: boolean; fromVoice?: boolean }[];
   msg: string;
   setMsg: (v: string) => void;
   chatLoading: boolean;
@@ -62,7 +63,10 @@ export function ChatPanel({
         </button>
       </div>
 
-      <div ref={chatContainerRef} style={{ minHeight: 180, maxHeight: 500, overflowY: "auto", margin: "24px 0", paddingRight: 8, display: "flex", flexDirection: "column", gap: 24 }}>
+      {/* AI Guidelines collapsible panel */}
+      <AIGuidelinesPanel />
+
+      <div ref={chatContainerRef} style={{ minHeight: 180, maxHeight: 500, overflowY: "auto", margin: "16px 0 24px 0", paddingRight: 8, display: "flex", flexDirection: "column", gap: 24 }}>
         {chat.map((m, i) => (
           <motion.div
             initial={{ opacity: 0, y: 15, scale: 0.98 }}
@@ -85,9 +89,19 @@ export function ChatPanel({
               borderBottomRightRadius: m.role === "user" ? 4 : 20,
               borderBottomLeftRadius: m.role === "user" ? 20 : 4,
               boxShadow: m.role === "user" ? `0 8px 24px ${result.archetype.color}40` : "0 8px 24px rgba(0,0,0,0.04)",
+              position: 'relative',
             }}>
               {m.role === "user" ? (
-                <span style={{ fontWeight: 600 }}>{m.text}</span>
+                <>
+                  <span style={{ fontWeight: 600 }}>{m.text}</span>
+                  {/* Small 🎙 badge on voice-transcribed messages */}
+                  {m.fromVoice && (
+                    <span title="Transcribed from voice" style={{
+                      position: 'absolute', top: 6, left: 8,
+                      fontSize: 9, opacity: 0.55,
+                    }}>🎙</span>
+                  )}
+                </>
               ) : (
                 <FormattedBotMessage text={m.text} color={result.archetype.color} />
               )}

@@ -3,6 +3,7 @@
 > **Built for the [Team USA × Google Cloud Hackathon](https://vibecodeforgoldwithgoogle.devpost.com/) — Challenge 4: The Athlete Archetype Agent**
 
 [![Apache 2.0 License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![CI](https://github.com/JiawenZhu/teamusa-oracle/actions/workflows/ci.yml/badge.svg)](https://github.com/JiawenZhu/teamusa-oracle/actions/workflows/ci.yml)
 [![Google Cloud](https://img.shields.io/badge/Google%20Cloud-Run%20%7C%20SQL%20%7C%20Gemini-4285F4?logo=google-cloud)](https://cloud.google.com)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi)](https://fastapi.tiangolo.com)
@@ -11,16 +12,18 @@
 
 ## What It Does
 
-**Team USA Digital Mirror** is an AI-powered sports analytics platform that finds your Olympic and Paralympic athlete archetype based on your biometrics — then lets you explore 120 years of Team USA history through a premium 3D interactive globe.
+**Team USA Digital Mirror** is an AI-powered sports analytics platform that finds which Olympic and Paralympic athlete archetype your biometric profile most closely aligns with — then lets you explore 120 years of Team USA history through a premium 3D interactive globe.
+
+> **271,116 athlete records spanning 120 years of Team USA Olympic history.** We believe every young person deserves to see how their own body connects to the athletes who have represented the United States on the world's biggest stage.
 
 ### Core Experience
 
-1. **Enter your height, weight, and age** — our real K-means ML model instantly matches you to one of 6 Olympic *or* 6 Paralympic athlete archetypes drawn from 271,116 rows of verified historical data
-2. **See your archetype** — a detailed profile card showing which Team USA legends share your build, your top sports, medal rates, and a personalized "Why you match" insight
+1. **Enter your height, weight, and age** — our K-means ML model matches you to one of 6 Olympic *or* 6 Paralympic athlete archetypes drawn from 271,116 rows of verified historical data
+2. **See your archetype** — a profile card showing which aggregate historical records align with your biometric cluster, your top sports, medal rates, and a "Why you match" insight
 3. **Chat with the AI analyst** — Gemini (powered by function calling against a live PostgreSQL DB) answers any question about Olympic history with grounded, data-verified answers
 4. **Watch the globe fly** — when Gemini mentions a host city, the 3D Earth automatically rotates to face it
-5. **Track your distance to LA 2028** — enter your hometown and see how far you are from the 2028 Los Angeles Olympics, visualized on the globe
-6. **Share your DNA** — a shareable URL encodes your biometrics so friends can see your exact archetype result
+5. **Track your distance to the LA28 Games** — enter your hometown and see how far you are from the LA28 Olympic and Paralympic Games, visualized on the globe
+6. **Share your result** — a shareable URL encodes your biometrics so friends can see your archetype profile result
 
 ---
 
@@ -28,14 +31,14 @@
 
 | Feature | Description |
 |---|---|
-| **🏅 Olympic / ♿ Paralympic Toggle** | Switch between two independent K-means models — Olympic or Paralympic — to find your archetype in either Games. LA 2028 hosts both. |
+| **🏅 Olympic / ♿ Paralympic Toggle** | Switch between two independent K-means models — Olympic or Paralympic — to find your archetype in either Games. The LA28 Games host both. |
 | **🌍 3D Interactive Globe** | NASA-textured Earth with atmosphere glow, starfield, sonar city markers, and animated flight arcs — built with Three.js + react-three-fiber |
-| **🤖 Gemini AI Analyst** | Real function-calling agent with 10 tools that query a live 271k-row PostgreSQL database. Never hallucinates — all answers are grounded in data. |
+| **🤖 Gemini AI Analyst** | Real function-calling agent with 10 tools that query a live 271k-row PostgreSQL database. All answers are grounded in verified historical data. |
 | **🎤 Voice Assistant** | Full voice I/O — speak your question, hear the answer via browser-native Web Speech API (SpeechSynthesis + SpeechRecognition) |
 | **🖐️ Hand Gesture Control** | Uses MediaPipe to detect gestures via webcam. Point to hover, pinch to select, open palm to rotate/zoom, and rock to close panels. |
 | **🔗 Shareable Links** | `?h=175&w=70&age=25` URL params auto-run the match and show a shared-result banner |
 | **🗺️ Globe City Control** | Gemini automatically flies the globe to any Olympic host city mentioned in the conversation |
-| **📍 LA 2028 Distance Tracker** | Geocodes your city and calculates the great-circle distance to the Coliseum in Los Angeles |
+| **📍 LA28 Games Distance Tracker** | Geocodes your city and calculates the great-circle distance to the Coliseum in Los Angeles |
 | **📡 SSE Streaming** | Chat responses stream progressively via Server-Sent Events for a real-time feel |
 
 ---
@@ -97,6 +100,9 @@ Both models use the famous [120 Years of Olympic History Kaggle Dataset](https:/
 |---|---|---|
 | **Olympic** | 8,108 USA Summer athletes with biometrics | Powerhouse · Aerobic Engine · Explosive Athlete · Precision Maestro · Aquatic Titan · Agile Competitor |
 | **Paralympic** | USA athletes across 13 Paralympic-proxy sports | Para Powerhouse · Para Endurance Engine · Para Sprinter · Para Precision Maestro · Para Aquatics Titan · Para Team Competitor |
+
+> [!IMPORTANT]
+> **Paralympic Disclaimer:** The Paralympic archetypes are modeled using Olympic athletes competing in sports that share functional movement patterns with Paralympic classifications (e.g., throwing, sprinting, swimming). This is **educational and exploratory analysis**, not official IPC classification data. The underlying Kaggle dataset covers 1896–2016 and does not contain historical Paralympic records. All archetypes represent aggregate historical patterns, not predictions for any individual.
 
 ---
 
@@ -176,7 +182,7 @@ Open **https://teamusa-8b1ba.web.app** and follow these steps:
 - ✅ Expect: Gemini dynamically queries the historical data to calculate average height by sport and era.
 - Type: `"For Team USA, does BMI correlate more strongly with medal success in strength sports or endurance sports?"`
 - ✅ Expect: Gemini analyzes BMI distribution among medalists in different sports using its SQL tools.
-- Type: `"How have Team USA women’s participation rates changed across Summer Olympic history?"`
+- Type: `"How have Team USA women's participation rates changed across Olympic Games history?"`
 - ✅ Expect: Gemini calculates the gender breakdown over time to show the historical trend.
 - Type: `"What is the average age of Team USA medalists by sport, and which sports favor younger or older athletes?"`
 - ✅ Expect: Gemini queries age distribution stats to provide a data-backed comparison across sports.
@@ -189,7 +195,7 @@ Open **https://teamusa-8b1ba.web.app** and follow these steps:
 - Click the **microphone** icon and speak a question
 - ✅ Expect: the response is spoken aloud via TTS after the text streams in
 
-#### 6. LA 2028 Distance Tracker
+#### 6. LA28 Games Distance Tracker
 - Enter your hometown (e.g., `"Chicago, IL"`)
 - ✅ Expect: a distance in km/miles to the LA28 Coliseum, with a globe pin
 
@@ -217,14 +223,34 @@ Ensure your webcam is active and permissions are granted. Test the following ges
 The backend API has interactive Swagger docs at:
 **https://teamusa-oracle-api-789615763226.us-central1.run.app/docs**
 
-Test the match endpoint directly:
+Test key endpoints directly:
+
 ```bash
+# Health check
+curl https://teamusa-oracle-api-789615763226.us-central1.run.app/health
+# → {"status":"ok"}
+
+# Biometric match (Olympic)
 curl -X POST https://teamusa-oracle-api-789615763226.us-central1.run.app/api/match \
   -H "Content-Type: application/json" \
   -d '{"height_cm": 178, "weight_kg": 72, "age": 25, "mode": "olympic"}'
+# → {"archetype_id": "aerobic_engine", "user_bmi": 22.7, ...}
+
+# Biometric match (Paralympic)
+curl -X POST https://teamusa-oracle-api-789615763226.us-central1.run.app/api/match \
+  -H "Content-Type: application/json" \
+  -d '{"height_cm": 178, "weight_kg": 72, "age": 25, "mode": "paralympic"}'
+# → {"archetype_id": "para_endurance_engine", ...}
+
+# All Olympic archetypes
+curl https://teamusa-oracle-api-789615763226.us-central1.run.app/api/archetypes
+
+# Dataset statistics
+curl https://teamusa-oracle-api-789615763226.us-central1.run.app/api/stats
+# → {"total_records": 271116, "unique_athletes": 8108, ...}
 ```
 
-Expected response includes `archetype_id`, `user_bmi`, and `closest_athletes`.
+> **Note:** The first request after a cold-start period may take 5–10 seconds as the 271k-row dataset is loaded into memory. Subsequent requests respond in under 50ms.
 
 ---
 
@@ -314,9 +340,22 @@ Built for the **[Vibe Code for Gold with Google Hackathon](https://vibecodeforgo
 
 ---
 
+## 🤖 Responsible AI
+
+All Gemini-generated responses in this application are governed by explicit system instructions:
+
+| Rule | Enforcement |
+|---|---|
+| **Conditional language only** | Responses use "historically associated with", "aggregate patterns suggest" — never deterministic claims |
+| **No individual athlete profiles** | AI is prohibited from profiling any named athlete or predicting individual outcomes |
+| **Aggregate data only** | All insights are drawn from population-level statistics, not individual records |
+| **Olympic/Paralympic clearly separated** | The two models are independent; Paralympic analysis always carries the proxy-sports disclaimer |
+| **Historical scope** | AI is scoped to the 1896–2016 Kaggle dataset; post-2016 claims are not grounded |
+
+---
+
 ## 📄 License
 
-Apache License 2.0 — see [LICENSE](LICENSE)
 
 ---
 

@@ -81,7 +81,7 @@ export function MatchResultPanel({
               onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
             >
               {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
-              {copied ? "Link Copied!" : "Share My DNA Card"}
+              {copied ? "Link Copied!" : "Share My Profile Result"}
             </button>
 
             <a 

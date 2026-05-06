@@ -36,7 +36,7 @@ export function TimelineChart({
       style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 64px" }}
     >
       <h2 style={{ fontSize: 22, fontWeight: 800, marginBottom: 4 }}>120-Year Athlete Timeline</h2>
-      <p style={{ fontSize: 13, color: "var(--text-sub)", marginBottom: 20 }}>Height distribution of USA Summer Olympic athletes by year — colored by archetype</p>
+      <p style={{ fontSize: 13, color: "var(--text-sub)", marginBottom: 20 }}>Height distribution of Team USA Olympic athletes by year — colored by archetype</p>
       <div style={{ background: "var(--bg-card)", border: "1px solid #1E293B", borderRadius: 16, padding: 16, overflowX: "auto" }}>
         <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", maxHeight: 260 }}>
           {/* Axes */}

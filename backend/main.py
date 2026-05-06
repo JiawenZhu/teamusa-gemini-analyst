@@ -23,7 +23,10 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from data.public_data import load_data, get_dataset_stats, get_all_archetypes, match_biometrics, get_timeline_data, match_para_biometrics, get_para_archetypes
-from db import api_routes, public_api
+from db import api_routes
+# NOTE: public_api (individual athlete endpoints) intentionally disabled for submission
+# Individual athlete data exposure violates hackathon rules — aggregate endpoints only
+# from db import public_api
 from agents.olympic_agent import ask_gemini
 from agents.gemini_tts import synthesize_text_to_wav_b64, synthesize_sentence_to_wav_b64
 
@@ -74,7 +77,8 @@ app.add_middleware(
 )
 
 app.include_router(api_routes.router)
-app.include_router(public_api.router)
+# public_api router disabled — individual athlete endpoints not exposed in production
+# app.include_router(public_api.router)
 
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -99,6 +103,9 @@ class ChatRequest(BaseModel):
     message:      str
     archetype_id: str
     history: list[ChatMessage] = []
+    user_height_cm: float | None = None
+    user_weight_kg: float | None = None
+    user_age: int | None = None
 
 
 # ── Routes ────────────────────────────────────────────────────────────────────
@@ -442,6 +449,12 @@ Paralympic sport alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
 IMPORTANT: Use conditional phrasing only — e.g., "athletes with similar builds have historically tended to..."
 Do NOT name or profile any specific athlete. Do NOT imply this user's performance will match any individual.
 """
+    if req.user_height_cm or req.user_weight_kg:
+        context += f"The user has explicitly entered their biometrics: "
+        if req.user_height_cm: context += f"{req.user_height_cm}cm "
+        if req.user_weight_kg: context += f"{req.user_weight_kg}kg "
+        if req.user_age: context += f"{req.user_age} years old "
+        context += "- you can reference these respectfully and motivationally if relevant.\n"
 
     response, map_trigger = ask_gemini(req.message, context, req.history)
     result = {"response": response}
@@ -541,6 +554,12 @@ Paralympic sport alignment: {', '.join(arch.get('paralympic_sports', [])[:3])}
 IMPORTANT: Use conditional phrasing only — e.g., "athletes with similar builds have historically tended to..."
 Do NOT name or profile any specific athlete. Do NOT imply this user's performance will match any individual.
 """
+    if req.user_height_cm or req.user_weight_kg:
+        context += f"The user has explicitly entered their biometrics: "
+        if req.user_height_cm: context += f"{req.user_height_cm}cm "
+        if req.user_weight_kg: context += f"{req.user_weight_kg}kg "
+        if req.user_age: context += f"{req.user_age} years old "
+        context += "- you can reference these respectfully and motivationally if relevant.\n"
 
     # Phase 1: agent runs (tools complete, grounded answer ready)
     full_response, map_trigger = await asyncio.to_thread(ask_gemini, req.message, context, req.history)

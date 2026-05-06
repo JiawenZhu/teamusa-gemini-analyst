@@ -42,7 +42,7 @@ export default function CardClient() {
         >
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#C9A22718", border: "1px solid #C9A22740", borderRadius: 99, padding: "6px 16px", marginBottom: 32 }}>
             <Trophy className="w-4 h-4 text-[#C9A227]" />
-            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#C9A227" }}>ATHLETIC DNA PROFILE</span>
+            <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: "#C9A227" }}>ARCHETYPE PROFILE CARD</span>
           </div>
 
           <h1 style={{ fontSize: "clamp(32px, 5vw, 48px)", fontWeight: 900, marginBottom: 40, letterSpacing: "-1px" }}>
@@ -67,7 +67,7 @@ export default function CardClient() {
              {/* eslint-disable-next-line @next/next/no-img-element */}
              <img 
                src={ogImageUrl} 
-               alt={`${arch} Athletic DNA Card`}
+               alt={`${arch} Archetype Profile Card`}
                style={{ width: "100%", height: "100%", objectFit: "cover" }}
              />
           </div>

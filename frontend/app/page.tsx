@@ -257,7 +257,7 @@ export default function Page() {
         await sendChatStream(
           m,
           result.archetype_id,
-          currentChat,
+          chat,
           { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined },
           async (text) => {
             rendered += (rendered ? " " : "") + text;
@@ -282,7 +282,7 @@ export default function Page() {
         );
       } catch (err) {
         console.warn("Stream failed, falling back:", err);
-        const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, currentChat, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
+        const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, chat, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
         if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
         setChat(c => {
           const updated = [...c];
@@ -294,7 +294,7 @@ export default function Page() {
       }
     } else {
       // Non-streaming path — use sendChat and extract mapTrigger from response
-      const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, currentChat, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
+      const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, chat, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
       if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
       setChat(c => [...c, { role: "bot", text: reply }]);
       setCL(false);

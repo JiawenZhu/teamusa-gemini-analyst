@@ -153,6 +153,8 @@ Chat responses stream progressively via **Server-Sent Events** — text appears 
                └─────────────────────────────────────┘
 ```
 
+This prevents the native Live model from hallucinating stats while keeping the voice experience fully real-time.
+
 ### Voice Hybrid Architecture
 
 The Live Voice assistant uses a **two-lane hybrid** design to ensure every answer is data-grounded:
@@ -167,7 +169,32 @@ User speaks → Gemini Live API (transcription only)
               → Gemini speaks the grounded answer via audio
 ```
 
-This prevents the native Live model from hallucinating stats while keeping the voice experience fully real-time.
+---
+
+## 🔬 Technical Foundation
+
+### **K-Means Biometric Clustering**
+Our engine uses a multi-dimensional K-means clustering algorithm to map user inputs. The distance $d$ between a user's biometric profile $P$ and an archetype centroid $C$ is calculated using the weighted Euclidean distance:
+
+$$ d(P, C) = \sqrt{ \sum_{i=1}^{n} w_i (P_i - C_i)^2 } $$
+
+Where:
+*   **$w_i$**: Feature weights (prioritizing Height and Weight over Age).
+*   **$P_i$**: User's normalized biometric values.
+*   **$C_i$**: Archetype centroid coordinates derived from 120 years of Team USA data.
+
+### **Grounded Retrieval (RAG)**
+The Gemini Analyst uses a **ReAct (Reasoning and Acting)** pattern to interact with the PostgreSQL database. Instead of relying on internal knowledge, it follows a strict protocol:
+1.  **Analyze**: Understand the user's intent (e.g., "Tallest athletes in 1996").
+2.  **Act**: Select and execute the appropriate SQL tool (e.g., `get_athlete_biometrics`).
+3.  **Synthesize**: Generate a natural language response grounded *only* in the returned dataset.
+
+### **MediaPipe Gesture Mapping**
+The 3D globe supports touchless navigation via **MediaPipe Hands**. We map hand landmarks to camera controls in a Three.js environment:
+*   **Index Point**: Raycasts to the globe surface for city selection.
+*   **Pinch (Index + Thumb)**: Triggers a "click" event on the target location.
+*   **Open Palm**: Initiates rotation based on the hand's vector $V_{hand}$ relative to the screen center.
+*   **Fist**: Global "cancel" or "close panel" signal.
 
 ---
 

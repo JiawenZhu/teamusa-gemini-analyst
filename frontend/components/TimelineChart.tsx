@@ -35,7 +35,7 @@ export function TimelineChart({
       initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
       className="max-w-7xl mx-auto px-6 py-32"
     >
       <div className="text-center mb-16">
@@ -94,7 +94,7 @@ export function TimelineChart({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
               className="overflow-hidden"
             >
               <div className="p-10 md:p-20 relative">

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Info, Sparkles, ChevronDown, ChevronUp, History, ClipboardCheck, LayoutGrid, Zap, Activity } from "lucide-react";
 import type { ArchetypeProfile } from "@/lib/api";
 import { fetchParaClassificationExplainer } from "@/lib/api";
@@ -13,20 +13,20 @@ const LOADING_PHRASES = [
   "Synthesizing legacy performance statistics…",
 ];
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0, y: 30 },
   visible: { 
     opacity: 1, 
     y: 0,
     transition: { 
       duration: 0.6, 
-      ease: [0.22, 1, 0.36, 1],
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
       staggerChildren: 0.08
     }
   }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
 };

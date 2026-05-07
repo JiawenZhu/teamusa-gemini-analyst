@@ -252,6 +252,12 @@ export default function Page() {
 
 
 
+  const clearChat = useCallback(() => {
+    setChat([]);
+    chatHistoryRef.current = [];
+    stopAudio();
+  }, [stopAudio]);
+
   const doChat = useCallback(async () => {
     if (!msg.trim() || !result) return;
 
@@ -552,6 +558,7 @@ export default function Page() {
                   <ChatPanel 
                     result={result}
                     chat={chat} msg={msg} setMsg={setMsg} chatLoading={chatLoading} doChat={doChat}
+                    clearChat={clearChat}
                     voiceEnabled={voiceEnabled} setVoiceEnabled={setVoiceEnabled} stopAudio={stopAudio}
                     isSpeaking={isSpeaking} micState={micState}
                     startListening={() => startListening("User biometrics: " + (result?.archetype.description || ""), result?.archetype_id)}

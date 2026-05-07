@@ -1,26 +1,26 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import type { ArchetypeProfile, DatasetStats } from "@/lib/api";
 import { BarChart3, Users, History, Trophy, TrendingUp, Ruler, Activity, Zap } from "lucide-react";
 
 const fmt = (n: number) => n.toLocaleString();
 
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0, y: 40 },
   visible: { 
     opacity: 1, 
     y: 0,
     transition: { 
       duration: 0.6, 
-      ease: [0.22, 1, 0.36, 1],
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
       staggerChildren: 0.1
     }
   },
   exit: { opacity: 0, y: 20, transition: { duration: 0.3 } }
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, x: -20 },
   visible: { opacity: 1, x: 0, transition: { duration: 0.4 } }
 };

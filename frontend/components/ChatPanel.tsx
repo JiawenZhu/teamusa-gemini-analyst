@@ -1,6 +1,7 @@
 "use client";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Volume2, VolumeX, Mic, MicOff, ArrowUp, User } from "lucide-react";
+import { Sparkles, Volume2, VolumeX, Mic, MicOff, ArrowUp, User, RotateCcw } from "lucide-react";
 import type { MatchResult } from "@/lib/api";
 import { FormattedBotMessage } from "./FormattedBotMessage";
 import { AIGuidelinesPanel } from "./AIGuidelinesPanel";
@@ -20,13 +21,14 @@ export function ChatPanel({
   startListening,
   stopListening,
   chatContainerRef,
+  clearChat,
 }: {
   result: MatchResult | null;
   chat: { role: string; text: string; sealed?: boolean; fromVoice?: boolean }[];
   msg: string;
   setMsg: (v: string) => void;
   chatLoading: boolean;
-  doChat: () => void;
+  doChat: (overrideMsg?: string) => void;
   voiceEnabled: boolean;
   setVoiceEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   stopAudio: () => void;
@@ -35,199 +37,229 @@ export function ChatPanel({
   startListening: () => void;
   stopListening: () => void;
   chatContainerRef: React.RefObject<HTMLDivElement | null>;
+  clearChat: () => void;
 }) {
+  const [isTyping, setIsTyping] = React.useState(false);
+  
   if (!result) return null;
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} style={{ background: "var(--bg-card)", border: "1px solid var(--border-color)", borderRadius: 20, padding: "24px 20px", boxShadow: "0 20px 60px rgba(0,0,0,0.15)", minWidth: 0 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6, width: "100%" }}>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", background: `linear-gradient(135deg, ${result.archetype.color}, #0A1628)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 14px ${result.archetype.color}60` }}>
+    <motion.div 
+      initial={{ opacity: 0, y: 30 }} 
+      animate={{ opacity: 1, y: 0 }} 
+      transition={{ delay: 0.3 }} 
+      className="bg-white border border-slate-100 rounded-[32px] p-6 md:p-8 shadow-2xl shadow-slate-200/50 flex flex-col min-w-0"
+    >
+      {/* Header Row */}
+      <div className="flex items-center gap-4 mb-6 w-full">
+        <div 
+          className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg relative overflow-hidden"
+          style={{ background: `linear-gradient(135deg, ${result.archetype.color}, #0A1628)` }}
+        >
           {isSpeaking ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <div className="flex items-center gap-1 relative z-10">
               {[1, 1.5, 0.8, 1.3, 0.9].map((h, i) => (
-                <motion.div key={i} animate={{ scaleY: [1, h * 1.8, 1] }} transition={{ repeat: Infinity, duration: 0.5 + i * 0.1, delay: i * 0.08 }} style={{ width: 3, height: 12, background: "white", borderRadius: 99, transformOrigin: "center" }} />
+                <motion.div 
+                  key={i} 
+                  animate={{ scaleY: [1, h * 1.8, 1] }} 
+                  transition={{ repeat: Infinity, duration: 0.5 + i * 0.1, delay: i * 0.08 }} 
+                  className="w-1 h-3 bg-white rounded-full transform-origin-center" 
+                />
               ))}
             </div>
           ) : (
-            <Sparkles className="w-5 h-5 text-white" />
+            <Sparkles className="w-6 h-6 text-white relative z-10" />
           )}
+          <div className="absolute inset-0 bg-white/10 opacity-50" />
         </div>
-        <div style={{ flex: 1 }}>
-          <h3 style={{ fontWeight: 900, fontSize: 18, letterSpacing: "-0.02em" }}>Ask Gemini</h3>
-          <p style={{ fontSize: 12, color: "var(--text-sub)", fontWeight: 500 }}>Powered by Gemini · Live 271k row Olympic database</p>
+        
+        <div className="flex-1">
+          <h3 className="hero-title text-xl font-bold text-slate-900 tracking-tight">Ask Gemini</h3>
+          <p className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">Powered by Live Olympic Database</p>
         </div>
-        <button onClick={() => { if (voiceEnabled) stopAudio(); setVoiceEnabled(v => !v); }}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 99, background: voiceEnabled ? `${result.archetype.color}20` : "var(--border-color)", border: `1px solid ${voiceEnabled ? result.archetype.color + "60" : "transparent"}`, color: voiceEnabled ? result.archetype.color : "var(--text-sub)", fontWeight: 700, fontSize: 12, cursor: "pointer", transition: "all 0.2s", flexShrink: 0 }}>
-          {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-          {voiceEnabled ? "Voice ON" : "Voice"}
+        
+        <button 
+          onClick={() => { if (voiceEnabled) stopAudio(); setVoiceEnabled(v => !v); }}
+          className={`
+            flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-all duration-200 border
+            ${voiceEnabled 
+              ? "bg-slate-900 border-slate-900 text-white shadow-md" 
+              : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"}
+          `}
+        >
+          {voiceEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+          <span>{voiceEnabled ? "Voice Enabled" : "Voice Off"}</span>
         </button>
+
+        {chat.length > 0 && (
+          <button 
+            onClick={clearChat}
+            title="Clear Chat"
+            className="p-2.5 rounded-full bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition-all duration-200 shadow-sm"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
-      {/* AI Guidelines collapsible panel */}
       <AIGuidelinesPanel />
 
-      <div ref={chatContainerRef} style={{ minHeight: 180, maxHeight: 500, overflowY: "auto", margin: "16px 0 16px 0", paddingRight: 8, display: "flex", flexDirection: "column", gap: 24 }}>
+      <div 
+        ref={chatContainerRef} 
+        className="min-h-[250px] max-h-[500px] overflow-y-auto mb-6 pr-2 flex flex-col gap-8 scroll-smooth"
+      >
         {/* ── Empty state with starter chips ── */}
         {chat.length === 0 && !chatLoading && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px 0 8px", gap: 14 }}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 26, marginBottom: 6 }}>✨</div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-main)", margin: "0 0 3px" }}>Your AI analyst is ready</p>
-              <p style={{ fontSize: 12.5, color: "var(--text-sub)", margin: 0, lineHeight: 1.5 }}>Ask anything about your archetype, Olympic history, or Team USA</p>
+          <div className="flex flex-col items-center justify-center py-10 gap-8">
+            <div className="text-center space-y-2">
+              <div className="text-4xl animate-bounce">✨</div>
+              <p className="text-lg font-black text-slate-900 tracking-tight">Your AI Analyst is Active</p>
+              <p className="text-sm text-slate-500 max-w-[280px] leading-relaxed">Ask anything about your archetype, Team USA history, or the host cities.</p>
             </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 500 }}>
+            
+            <div className="flex flex-wrap gap-2 justify-center max-w-2xl">
               {[
-                { icon: "🏊", text: "Which sports best match my archetype?" },
-                { icon: "👩", text: "How have women's participation rates changed?" },
-                { icon: "🥇", text: "What's my archetype's medal rate in history?" },
-                { icon: "🌍", text: "Tell me about the 1984 Los Angeles Games" },
+                { icon: "📏", text: "Which Team USA sports have the tallest average athletes, and how has that changed over time?" },
+                { icon: "⚖️", text: "Which sports show the biggest difference in average height and weight between medalists and non-medalists?" },
+                { icon: "🧬", text: "For Team USA, does BMI correlate more strongly with medal success in strength sports or endurance sports?" },
+                { icon: "👩", text: "How have Team USA women’s participation rates changed across Summer Olympic history?" },
+                { icon: "🎯", text: "Which Team USA sports have become more specialized by body type over time?" },
+                { icon: "⏳", text: "What is the average age of Team USA medalists by sport, and which sports favor younger or older athletes?" },
               ].map(({ icon, text }) => (
                 <button
                   key={text}
-                  onClick={() => { setMsg(text); setTimeout(() => doChat(), 60); }}
-                  style={{
-                    background: `${result.archetype.color}12`,
-                    border: `1px solid ${result.archetype.color}35`,
-                    borderRadius: 99, padding: "8px 16px",
-                    fontSize: 13, color: "var(--text-main)",
-                    cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-                    transition: "all 0.2s", fontWeight: 500,
+                  disabled={isTyping || chatLoading}
+                  onClick={() => {
+                    if (isTyping || chatLoading) return;
+                    setIsTyping(true);
+                    let current = "";
+                    let i = 0;
+                    setMsg("");
+                    
+                    const interval = setInterval(() => {
+                      current += text[i];
+                      setMsg(current);
+                      i++;
+                        if (i >= text.length) {
+                          clearInterval(interval);
+                          setIsTyping(false);
+                          setTimeout(() => doChat(text), 400);
+                        }
+                    }, 30);
                   }}
-                  onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = `${result.archetype.color}25`; b.style.borderColor = `${result.archetype.color}60`; }}
-                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = `${result.archetype.color}12`; b.style.borderColor = `${result.archetype.color}35`; }}
+                  className={`
+                    bg-slate-50 hover:bg-white hover:shadow-md border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold text-slate-700 flex items-center gap-3 transition-all duration-200 group
+                    ${isTyping || chatLoading ? "opacity-50 cursor-not-allowed" : "active:scale-95"}
+                  `}
                 >
-                  <span>{icon}</span><span>{text}</span>
+                  <span className="text-lg group-hover:scale-125 transition-transform">{icon}</span>
+                  <span>{text}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
+
         {chat.map((m, i) => (
           <motion.div
             initial={{ opacity: 0, y: 15, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             transition={{ type: "spring", stiffness: 220, damping: 22 }}
             key={i}
-            style={{ display: "flex", gap: 12, alignItems: "flex-end", alignSelf: m.role === "user" ? "flex-end" : "flex-start", maxWidth: "85%" }}
+            className={`flex gap-4 items-end max-w-[90%] ${m.role === "user" ? "self-end flex-row-reverse" : "self-start"}`}
           >
-            {m.role !== "user" && (
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: `linear-gradient(135deg, ${result.archetype.color}, #0A1628)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 10px ${result.archetype.color}40` }}>
-                <Sparkles className="w-4 h-4" style={{ color: "#FFF" }} />
-              </div>
-            )}
-            <div style={{
-              padding: "16px 20px", fontSize: 14.5, lineHeight: 1.6,
-              background: m.role === "user" ? `linear-gradient(135deg, ${result.archetype.color}, ${result.archetype.color}DD)` : "var(--bg-main)",
-              border: m.role === "user" ? "none" : "1px solid var(--border-color)",
-              color: m.role === "user" ? "#FFF" : "var(--text-main)",
-              borderRadius: 20,
-              borderBottomRightRadius: m.role === "user" ? 4 : 20,
-              borderBottomLeftRadius: m.role === "user" ? 20 : 4,
-              boxShadow: m.role === "user" ? `0 8px 24px ${result.archetype.color}40` : "0 8px 24px rgba(0,0,0,0.04)",
-              position: 'relative',
-            }}>
+            <div className={`
+              w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm
+              ${m.role === "user" ? "bg-slate-100 border border-slate-200" : "bg-slate-900"}
+            `}>
+              {m.role === "user" ? <User className="w-4 h-4 text-slate-600" /> : <Sparkles className="w-4 h-4 text-white" />}
+            </div>
+            
+            <div className={`
+              relative p-5 text-[15px] leading-relaxed font-medium
+              ${m.role === "user" 
+                ? "bg-slate-900 text-white rounded-3xl rounded-br-none shadow-xl shadow-slate-900/10" 
+                : "bg-slate-50 border border-slate-100 text-slate-800 rounded-3xl rounded-bl-none shadow-sm"}
+            `}>
               {m.role === "user" ? (
                 <>
-                  <span style={{ fontWeight: 600 }}>{m.text}</span>
-                  {/* Small 🎙 badge on voice-transcribed messages */}
+                  <span className="font-semibold">{m.text}</span>
                   {m.fromVoice && (
-                    <span title="Transcribed from voice" style={{
-                      position: 'absolute', top: 6, left: 8,
-                      fontSize: 9, opacity: 0.55,
-                    }}>🎙</span>
+                    <span title="Transcribed from voice" className="absolute -top-3 right-0 bg-white border border-slate-200 text-slate-400 text-[9px] px-2 py-0.5 rounded-full shadow-sm">🎙 Voice</span>
                   )}
                 </>
               ) : (
                 <FormattedBotMessage text={m.text} color={result.archetype.color} />
               )}
             </div>
-            {m.role === "user" && (
-              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--border-color)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <User className="w-4 h-4 text-white" />
-              </div>
-            )}
           </motion.div>
         ))}
         
         {chatLoading && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} style={{ display: "flex", gap: 12, alignItems: "flex-end", alignSelf: "flex-start" }}>
-             <div style={{ width: 32, height: 32, borderRadius: "50%", background: `linear-gradient(135deg, ${result.archetype.color}, #0A1628)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 10px ${result.archetype.color}40` }}>
-               <Sparkles className="w-4 h-4" style={{ color: "#FFF" }} />
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-4 items-end self-start">
+             <div className="w-9 h-9 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0 shadow-sm">
+               <Sparkles className="w-4 h-4 text-white" />
              </div>
-             <div style={{ padding: "16px 20px", background: "var(--bg-main)", border: "1px solid var(--border-color)", borderRadius: 20, borderBottomLeftRadius: 4, display: "flex", alignItems: "center", gap: 6 }}>
-               <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0 }} style={{ width: 6, height: 6, borderRadius: "50%", background: result.archetype.color }} />
-               <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }} style={{ width: 6, height: 6, borderRadius: "50%", background: result.archetype.color }} />
-               <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }} style={{ width: 6, height: 6, borderRadius: "50%", background: result.archetype.color }} />
+             <div className="bg-slate-50 border border-slate-100 p-5 rounded-3xl rounded-bl-none flex items-center gap-2 shadow-sm">
+               <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6 }} className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+               <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.15 }} className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+               <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 0.6, delay: 0.3 }} className="w-1.5 h-1.5 rounded-full bg-slate-400" />
              </div>
           </motion.div>
         )}
       </div>
 
-      <div style={{ 
-        display: "flex", alignItems: "flex-end", gap: 10, position: "relative",
-        background: "var(--bg-main)", border: "1px solid var(--border-color)", borderRadius: 20, 
-        padding: "10px 10px 10px 18px", boxShadow: "0 8px 24px rgba(0,0,0,0.05)",
-        transition: "border-color 0.2s, box-shadow 0.2s"
-      }}
-        onFocus={(e) => { e.currentTarget.style.borderColor = result.archetype.color; e.currentTarget.style.boxShadow = `0 8px 32px ${result.archetype.color}20`; }}
-        onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border-color)"; e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.05)"; }}
-      >
+      {/* Input Area */}
+      <div className={`
+        flex items-end gap-3 p-2 pl-6 bg-slate-50 border-2 rounded-[28px] shadow-inner transition-all duration-300
+        focus-within:bg-white focus-within:border-slate-200 focus-within:shadow-xl focus-within:shadow-slate-200/50
+      `}>
         <textarea
           id="chat-input"
           value={msg}
           rows={1}
+          disabled={isTyping || chatLoading}
           onChange={e => {
             setMsg(e.target.value);
-            // Auto-grow: reset height then set to scrollHeight (capped at ~5 lines)
             e.target.style.height = "auto";
             e.target.style.height = Math.min(e.target.scrollHeight, 130) + "px";
           }}
           onKeyDown={e => {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doChat(); }
           }}
-          placeholder={micState === "listening" ? "Listening…" : "Ask Gemini about Olympic history…"}
-          style={{
-            flex: 1, background: "transparent", border: "none",
-            color: "var(--text-main)", fontSize: 15, outline: "none", resize: "none",
-            lineHeight: 1.55, fontFamily: "inherit", minHeight: 26, maxHeight: 130,
-            overflowY: "auto", padding: 0,
-            fontStyle: micState === "listening" ? "italic" : "normal",
-          }}
+          placeholder={isTyping ? "Typing..." : micState === "listening" ? "Listening to you…" : "Ask Gemini anything…"}
+          className="flex-1 bg-transparent border-none text-slate-900 text-base outline-none resize-none py-3 font-medium placeholder:text-slate-400 min-h-[48px] max-h-[130px] disabled:opacity-70"
         />
-        {/* Mic Button */}
-        <button
-          id="mic-btn"
-          onClick={micState === "listening" ? stopListening : startListening}
-          title={micState === "listening" ? "Stop listening" : "Ask Gemini"}
-          style={{
-            width: 40, height: 40, borderRadius: "50%",
-            background: micState === "listening" ? "#EF4444" : "var(--border-color)",
-            border: micState === "listening" ? "none" : "1px solid var(--border-color)",
-            color: micState === "listening" ? "#FFF" : "var(--text-sub)",
-            cursor: "pointer", transition: "all 0.2s",
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            boxShadow: micState === "listening" ? "0 0 0 6px rgba(239,68,68,0.2)" : "none",
-            animation: micState === "listening" ? "micPulse 1.2s ease-in-out infinite" : "none",
-          }}
-        >
-          {micState === "listening" ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-        </button>
-        <button id="chat-send" onClick={doChat} disabled={chatLoading || !msg.trim()}
-          style={{ 
-            width: 40, height: 40, borderRadius: "50%", 
-            background: msg.trim() ? `linear-gradient(135deg, ${result.archetype.color}, ${result.archetype.color}DD)` : "var(--border-color)", 
-            border: "none", color: "#FFF", 
-            cursor: chatLoading || !msg.trim() ? "not-allowed" : "pointer", 
-            opacity: chatLoading ? 0.5 : 1, transition: "all 0.2s", 
-            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-            boxShadow: msg.trim() ? `0 4px 12px ${result.archetype.color}50` : "none"
-          }}
-          onMouseDown={e => e.currentTarget.style.transform = "scale(0.92)"}
-          onMouseUp={e => e.currentTarget.style.transform = "scale(1)"}
-          onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
-        >
-          <ArrowUp className="w-5 h-5" />
-        </button>
+        
+        {/* Action Buttons */}
+        <div className="flex gap-2 items-center pb-1 pr-1">
+          <button
+            onClick={micState === "listening" ? stopListening : startListening}
+            disabled={isTyping || chatLoading}
+            className={`
+              w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+              ${micState === "listening" 
+                ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/30" 
+                : "bg-white border border-slate-200 text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:shadow-md"}
+              ${isTyping || chatLoading ? "opacity-50 cursor-not-allowed" : ""}
+            `}
+          >
+            {micState === "listening" ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+          </button>
+          
+          <button 
+            onClick={doChat} 
+            disabled={isTyping || chatLoading || !msg.trim()}
+            className={`
+              w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+              ${msg.trim() && !isTyping && !chatLoading
+                ? "bg-slate-900 text-white shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 active:scale-95" 
+                : "bg-slate-100 text-slate-300 cursor-not-allowed"}
+            `}
+          >
+            <ArrowUp className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </motion.div>
   );

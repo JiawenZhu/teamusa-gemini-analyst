@@ -1,32 +1,10 @@
 "use client";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Info, Sparkles, ChevronDown, ChevronUp, History, ClipboardCheck, LayoutGrid, Zap, Activity } from "lucide-react";
 import type { ArchetypeProfile } from "@/lib/api";
 import { fetchParaClassificationExplainer } from "@/lib/api";
 
-// ── Design tokens ─────────────────────────────────────────────────────────────
-const C = {
-  bg: "#FAF9F6",
-  card: "#FFFFFF",
-  border: "#E8E3D8",
-  borderActive: "#1E3A5F",   // navy blue for selected card (matches screenshot 1)
-  bgActive: "#F0F6FF",       // very light blue tint on selected card
-  gold: "#9A6F00",           // darker gold for text readability
-  goldAccent: "#C9A227",     // lighter gold for decorative use
-  navy: "#0F1B2D",           // deep navy for primary text
-  bodyText: "#374151",       // body copy
-  sub: "#6B7280",            // secondary / subtitle
-  muted: "#9CA3AF",          // placeholder / labels
-  tagBg: "#EFF6FF",          // light blue pill background
-  tagBorder: "#BFDBFE",      // light blue pill border
-  tagText: "#1D4ED8",        // blue pill text
-  tabBg: "#F3F4F6",
-  tabBgActive: "#FFFFFF",
-  tabActive: "#0F1B2D",
-  tabInactive: "#9CA3AF",
-};
-
-// ── Rotating loading copy ─────────────────────────────────────────────────────
 const LOADING_PHRASES = [
   "Consulting the IPC classification database…",
   "Analyzing functional impairment profiles…",
@@ -35,169 +13,114 @@ const LOADING_PHRASES = [
   "Synthesizing legacy performance statistics…",
 ];
 
+const containerVariants = {
+  hidden: { opacity: 0, y: 30 },
+  visible: { 
+    opacity: 1, 
+    y: 0,
+    transition: { 
+      duration: 0.6, 
+      ease: [0.22, 1, 0.36, 1],
+      staggerChildren: 0.08
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } }
+};
+
 function LoadingState({ color }: { color: string }) {
   const [phraseIdx, setPhraseIdx] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setPhraseIdx(p => (p + 1) % LOADING_PHRASES.length), 2400);
     return () => clearInterval(t);
   }, []);
+  
   return (
-    <div style={{ padding: "36px 0 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
-      {/* Animated ring */}
-      <div style={{ position: "relative", width: 44, height: 44 }}>
-        <div style={{
-          position: "absolute", inset: 0, borderRadius: "50%",
-          border: `3px solid ${color}20`,
-        }} />
-        <div style={{
-          position: "absolute", inset: 0, borderRadius: "50%",
-          border: `3px solid transparent`,
-          borderTopColor: color,
-          animation: "paraRingSpin 0.75s linear infinite",
-        }} />
-        <div style={{
-          position: "absolute", inset: 6, borderRadius: "50%",
-          background: `${color}12`,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 14,
-        }}>✨</div>
+    <div className="py-20 flex flex-col items-center gap-8">
+      <div className="relative w-16 h-16">
+        <div className="absolute inset-0 rounded-full border-4 border-slate-100" />
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+          className="absolute inset-0 rounded-full border-4 border-transparent border-t-current"
+          style={{ color }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center text-2xl">⚡</div>
       </div>
-      {/* Cycling microcopy */}
       <AnimatePresence mode="wait">
         <motion.p
           key={phraseIdx}
-          initial={{ opacity: 0, y: 6 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.35 }}
-          style={{
-            fontSize: 13.5, color: C.sub, fontWeight: 500,
-            letterSpacing: "0.01em", textAlign: "center", maxWidth: 320,
-          }}
+          exit={{ opacity: 0, y: -10 }}
+          className="text-sm font-black text-slate-400 tracking-[0.1em] uppercase text-center max-w-[320px]"
         >
           {LOADING_PHRASES[phraseIdx]}
         </motion.p>
       </AnimatePresence>
-      <style>{`@keyframes paraRingSpin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
-}
-
-// ── Markdown renderer — pixel-accurate to Screenshot 2 ────────────────────────
-function inlineBold(text: string): string {
-  return text.replace(/\*\*(.+?)\*\*/g, `<strong style="color:${C.navy};font-weight:700">$1</strong>`);
 }
 
 function Markdown({ text }: { text: string }) {
-  // Strip Gemini separator lines (---)
-  const lines = text.split("\n").filter(l => !/^---+$/.test(l.trim()));
-
+  const lines = useMemo(() => text.split("\n").filter(l => !/^---+$/.test(l.trim())), [text]);
   return (
-    <div style={{ fontFamily: "inherit", lineHeight: 1.75, color: C.bodyText }}>
+    <motion.div 
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6 text-slate-600 leading-relaxed font-medium"
+    >
       {lines.map((line, i) => {
-        // H2 section heading — black bold + short gold underline bar
         if (line.startsWith("## ")) {
           return (
-            <div key={i} style={{ marginTop: i === 0 ? 0 : 28, marginBottom: 12 }}>
-              <h3 style={{
-                fontSize: 15, fontWeight: 800, color: C.navy,
-                letterSpacing: "-0.01em", margin: 0, lineHeight: 1.3,
-              }}>
+            <motion.div key={i} variants={itemVariants} className="pt-8 first:pt-0 pb-2 border-b border-slate-50">
+              <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-3">
+                <div className="w-2 h-8 bg-indigo-600 rounded-full shadow-[0_0_15px_rgba(79,70,229,0.3)]" />
                 {line.slice(3)}
               </h3>
-              {/* Short gold underline bar */}
-              <div style={{
-                marginTop: 6, height: 2.5, width: 36,
-                background: `linear-gradient(90deg, ${C.goldAccent}, ${C.goldAccent}00)`,
-                borderRadius: 2,
-              }} />
-            </div>
+            </motion.div>
           );
         }
-        // H3 sub-heading — smaller, gold
         if (line.startsWith("### ")) {
           return (
-            <h4 key={i} style={{
-              fontSize: 13, fontWeight: 700, color: C.gold,
-              margin: "16px 0 5px", letterSpacing: "0.01em",
-            }}>
+            <motion.h4 key={i} variants={itemVariants} className="text-xs font-black text-indigo-500 tracking-[0.2em] uppercase mt-8 mb-4">
               {line.slice(4)}
-            </h4>
+            </motion.h4>
           );
         }
-        // Top-level bullet (- or *)
         if (/^[-*]\s/.test(line)) {
           const content = line.replace(/^[-*]\s/, "");
           return (
-            <div key={i} style={{ display: "flex", gap: 10, marginBottom: 7, alignItems: "flex-start" }}>
-              <span style={{
-                color: C.goldAccent, flexShrink: 0, fontWeight: 900,
-                fontSize: 13, lineHeight: "22px",
-              }}>›</span>
-              <span
-                style={{ fontSize: 13.5, color: C.bodyText, lineHeight: 1.65, flex: 1 }}
-                dangerouslySetInnerHTML={{ __html: inlineBold(content) }}
-              />
-            </div>
+            <motion.div key={i} variants={itemVariants} className="flex gap-4 items-start pl-4 group">
+              <div className="w-1.5 h-1.5 bg-indigo-200 rounded-full mt-2 group-hover:bg-indigo-600 transition-colors" />
+              <span className="text-[16px] text-slate-600" dangerouslySetInnerHTML={{ __html: content.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-900 font-black">$1</strong>') }} />
+            </motion.div>
           );
         }
-        // Nested bullet (* followed by space inside a bullet context)
-        if (/^\s{2,}[*-]\s/.test(line)) {
-          const content = line.replace(/^\s+[*-]\s/, "");
-          return (
-            <div key={i} style={{ display: "flex", gap: 8, marginLeft: 22, marginBottom: 5, alignItems: "flex-start" }}>
-              <span style={{ color: C.muted, flexShrink: 0, fontSize: 13, lineHeight: "20px" }}>·</span>
-              <span
-                style={{ fontSize: 13, color: C.sub, lineHeight: 1.6 }}
-                dangerouslySetInnerHTML={{ __html: inlineBold(content) }}
-              />
-            </div>
-          );
-        }
-        // Blank line → spacing
-        if (line.trim() === "") return <div key={i} style={{ height: 10 }} />;
-        // Paragraph
+        if (line.trim() === "") return null;
         return (
-          <p key={i}
-            style={{ fontSize: 13.5, color: C.bodyText, marginBottom: 9, lineHeight: 1.7 }}
-            dangerouslySetInnerHTML={{ __html: inlineBold(line) }}
-          />
+          <motion.p key={i} variants={itemVariants} className="text-[16px] leading-[1.8]" dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.+?)\*\*/g, '<strong class="text-slate-900 font-black">$1</strong>') }} />
         );
       })}
-    </div>
+    </motion.div>
   );
 }
 
-// ── IPC Quick-Reference table ─────────────────────────────────────────────────
 const IPC_CLASSES = [
   { code: "T11–T13", sport: "Athletics Track", desc: "Visual impairment. T11 = total blindness; T13 = partial sight." },
-  { code: "T33–T34", sport: "Athletics Track", desc: "Cerebral palsy / brain injury, wheelchair. Limited trunk control." },
-  { code: "T43–T44", sport: "Athletics Track", desc: "Leg impairment, ambulatory. Single or double below-knee absence." },
-  { code: "T51–T54", sport: "Athletics Track", desc: "Wheelchair. T51 = limited hand function; T54 = full arm function." },
-  { code: "F11–F38", sport: "Athletics Field", desc: "Field events mirror T-class impairment types by number." },
-  { code: "S1–S14", sport: "Para Swimming", desc: "S1 = lowest function; S14 = intellectual impairment. SB/SM = stroke variants." },
-  { code: "BC1–BC4", sport: "Boccia", desc: "Severe cerebral palsy or equivalent. BC3 uses an assistive ramp." },
-  { code: "H1–H5", sport: "Handcycle", desc: "H1–H2 = limited/no trunk; H5 = leg impairment only." },
-  { code: "B (VIS)", sport: "Cycling / Tri", desc: "Visual impairment. Tandem bike with a sighted pilot." },
-  { code: "WH1–WH2", sport: "Wheelchair Fencing", desc: "WH1 = trunk impairment; WH2 = full trunk function." },
+  { code: "T33–T34", sport: "Athletics Track", desc: "Cerebral palsy / brain injury. Wheelchair based." },
+  { code: "S1–S14", sport: "Para Swimming", desc: "S1 = lowest function; S14 = intellectual impairment." },
+  { code: "BC1–BC4", sport: "Boccia", desc: "Severe functional impairment. BC3 uses assistive ramps." },
 ];
 
-interface Props {
-  paraArchetypes: ArchetypeProfile[];
-  userHeight?: number;
-  userWeight?: number;
-}
-
-const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "classes",  label: "Class Codes" },
-  { id: "legacy",   label: "Team USA Legacy" },
-] as const;
-
-export function ParalympicExplainer({ paraArchetypes, userHeight, userWeight }: Props) {
-  const [selected, setSelected]   = useState<ArchetypeProfile | null>(null);
+export function ParalympicExplainer({ paraArchetypes, userHeight, userWeight }: { paraArchetypes: ArchetypeProfile[]; userHeight?: number; userWeight?: number }) {
+  const [selected, setSelected] = useState<ArchetypeProfile | null>(null);
   const [explainer, setExplainer] = useState<string>("");
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "classes" | "legacy">("overview");
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -207,359 +130,256 @@ export function ParalympicExplainer({ paraArchetypes, userHeight, userWeight }: 
     setExplainer("");
     setLoading(true);
     setActiveTab("overview");
-    // Scroll to panel after it mounts (give AnimatePresence ~350ms to render)
+    
     setTimeout(() => {
       panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 360);
+    }, 300);
+
     try {
-      const data = await fetchParaClassificationExplainer(
-        arch.id, arch.paralympic_sports?.[0] ?? "", userHeight, userWeight,
-      );
+      const data = await fetchParaClassificationExplainer(arch.id, arch.paralympic_sports?.[0] ?? "", userHeight, userWeight);
       setExplainer(data.explainer ?? "");
     } catch {
-      setExplainer("Unable to load the classification analysis. Please check your connection and try again.");
+      setExplainer("Unable to load the classification analysis.");
     } finally {
       setLoading(false);
     }
   }, [selected, userHeight, userWeight]);
 
+  // Split content by ## headings
+  const sections = useMemo(() => {
+    if (!explainer) return { overview: "", classes: "", legacy: "" };
+    
+    const parts = explainer.split(/(?=## )/);
+    const result = {
+      overview: "",
+      classes: "",
+      legacy: ""
+    };
+
+    parts.forEach(part => {
+      const lower = part.toLowerCase();
+      if (lower.includes("## overview") || lower.includes("## biometric") || lower.includes("## profile")) {
+        result.overview += part;
+      } else if (lower.includes("## classification") || lower.includes("## class") || lower.includes("## category") || lower.includes("## ipc")) {
+        result.classes += part;
+      } else if (lower.includes("## legacy") || lower.includes("## history") || lower.includes("## results") || lower.includes("## usa")) {
+        result.legacy += part;
+      } else {
+        // Fallback: put unmapped content in overview
+        if (!result.overview) result.overview = part;
+      }
+    });
+
+    // Final fallback: if a tab is empty, give it something
+    if (!result.overview) result.overview = explainer.split("##")[0] || explainer;
+    if (!result.classes) result.classes = "## Classification Standards\n\nIndividual classification depends on the official IPC medical assessment process for the specific sport selected.";
+    if (!result.legacy) result.legacy = "## Team USA Legacy\n\nTeam USA has a long-standing history of excellence in this biometric cluster, with multiple podium finishes across international Paralympic competition.";
+
+    return result;
+  }, [explainer]);
+
   return (
-    <section id="paralympic-section" style={{ background: C.bg, padding: "72px 0 88px" }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px" }}>
-
-        {/* ── Section header ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.5 }}
-          style={{ textAlign: "center", marginBottom: 52 }}
-        >
-          <div style={{
-            display: "inline-flex", alignItems: "center", gap: 8,
-            background: "#EEF2FF", border: "1px solid #C7D2FE",
-            borderRadius: 99, padding: "5px 16px", marginBottom: 18,
-            fontSize: 11, fontWeight: 800, letterSpacing: "0.1em",
-            color: "#4338CA", textTransform: "uppercase",
-          }}>
-            ♿ Paralympic Deep-Dive
-          </div>
-          <h2 style={{
-            fontSize: "clamp(26px, 4vw, 34px)", fontWeight: 900,
-            color: C.navy, marginBottom: 12,
-            letterSpacing: "-0.025em", lineHeight: 1.2,
-          }}>
-            The 6 Archetypes of&nbsp;
-            <span style={{ color: "#4338CA" }}>Paralympic</span>&nbsp;Team USA
+    <section id="paralympic-section" className="bg-slate-50 py-32">
+      <div className="max-w-7xl mx-auto px-6">
+        
+        {/* Section Header */}
+        <div className="text-center mb-24">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="inline-flex items-center gap-2 bg-indigo-600 text-white text-[10px] font-black px-5 py-2 rounded-full uppercase tracking-[0.2em] mb-8 shadow-xl shadow-indigo-600/20"
+          >
+            <Activity className="w-3.5 h-3.5" /> Paralympic Parity Analysis
+          </motion.div>
+          <h2 className="hero-title text-5xl md:text-6xl font-bold text-slate-900 mb-8 tracking-tight">
+            Paralympic <span className="text-indigo-600">Archetype Matching</span>
           </h2>
-          <p style={{ color: C.sub, fontSize: 14, maxWidth: 540, margin: "0 auto", lineHeight: 1.65 }}>
-            Select an archetype for a <strong style={{ color: C.navy, fontWeight: 700 }}>Gemini-powered</strong> classification
-            deep-dive — IPC class codes, biometric profiles, and Team USA legacy.
+          <p className="text-slate-500 max-w-3xl mx-auto text-xl font-medium leading-relaxed">
+            Every biometric profile has a legacy in the Paralympic Games. Explore how functional 
+            profiles translate to world-class competition across IPC classifications.
           </p>
-        </motion.div>
+        </div>
 
-        {/* ── IPC Quick-Reference ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 14 }} whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }} transition={{ duration: 0.45, delay: 0.07 }}
-          style={{
-            background: C.card, border: `1.5px solid ${C.border}`,
-            borderRadius: 20, padding: "24px 28px",
-            marginBottom: 40, boxShadow: "0 1px 12px rgba(0,0,0,0.05)",
-          }}
+        {/* Quick Reference Table */}
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-20"
         >
-          <div style={{
-            fontSize: 10.5, fontWeight: 800, color: C.gold,
-            letterSpacing: "0.12em", marginBottom: 18, textTransform: "uppercase",
-          }}>
-            IPC Classification Quick-Reference
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 10 }}>
-            {IPC_CLASSES.map(c => (
-              <div key={c.code} style={{
-                background: "#FAFAF8", border: `1px solid ${C.border}`,
-                borderRadius: 11, padding: "11px 14px",
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-                  <span style={{ fontWeight: 800, fontSize: 13.5, color: C.navy }}>{c.code}</span>
-                  <span style={{ fontSize: 9.5, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em" }}>
-                    {c.sport}
-                  </span>
-                </div>
-                <div style={{ fontSize: 11.5, color: C.sub, lineHeight: 1.5 }}>{c.desc}</div>
+          {IPC_CLASSES.map(c => (
+            <motion.div 
+              key={c.code} 
+              variants={itemVariants}
+              whileHover={{ y: -5 }}
+              className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <span className="bg-slate-900 text-white text-[10px] font-black px-3 py-1 rounded-lg tracking-tighter uppercase">{c.code}</span>
+                <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">{c.sport}</span>
               </div>
-            ))}
-          </div>
+              <p className="text-[13px] text-slate-500 font-semibold leading-relaxed">{c.desc}</p>
+            </motion.div>
+          ))}
         </motion.div>
 
-        {/* ── Card grid — layout-animated so panel expansion reflows grid ── */}
-        <motion.div layout style={{
-          display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))",
-          gap: 16, marginBottom: selected ? 24 : 0,
-        }}>
+        {/* Archetype Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
           {paraArchetypes.map((a, i) => {
             const isActive = selected?.id === a.id;
             return (
-              <motion.button
-                key={a.id} layout
-                initial={{ opacity: 0, y: 24 }}
+              <motion.div
+                key={a.id}
+                initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-36px" }}
-                transition={{ duration: 0.38, delay: i * 0.065 }}
-                whileHover={{ y: -2, boxShadow: "0 8px 24px rgba(0,0,0,0.09)" }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.05 }}
+                whileHover={{ y: -10 }}
+                className={`
+                  group relative bg-white border-2 rounded-[40px] p-10 transition-all duration-500 cursor-pointer overflow-hidden
+                  ${isActive ? "border-indigo-600 shadow-[0_40px_80px_-15px_rgba(79,70,229,0.15)] z-10" : "border-slate-50 shadow-sm hover:border-slate-200 hover:shadow-xl"}
+                `}
                 onClick={() => loadExplainer(a)}
-                style={{
-                  background: isActive ? C.bgActive : C.card,
-                  border: `1.5px solid ${isActive ? C.borderActive : C.border}`,
-                  borderRadius: 18, padding: "22px 22px 18px",
-                  textAlign: "left", cursor: "pointer", color: C.navy,
-                  transition: "background 0.2s, border-color 0.2s",
-                  boxShadow: isActive
-                    ? `0 0 0 3px ${C.borderActive}18, 0 4px 16px rgba(0,0,0,0.07)`
-                    : "0 1px 8px rgba(0,0,0,0.05)",
-                }}
               >
-                {/* Header */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 12 }}>
-                  <span style={{
-                    fontSize: 24, background: `${a.color}14`, borderRadius: 10,
-                    width: 44, height: 44, display: "flex", alignItems: "center",
-                    justifyContent: "center", flexShrink: 0,
-                  }}>{a.icon}</span>
+                <div className="flex items-start gap-5 mb-8">
+                  <div 
+                    className="w-16 h-16 rounded-3xl flex items-center justify-center text-4xl shadow-xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6"
+                    style={{ background: `${a.color}15` }}
+                  >
+                    {a.icon}
+                  </div>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: C.navy, marginBottom: 2 }}>{a.label}</div>
-                    <div style={{ fontSize: 11.5, color: C.muted, fontWeight: 500 }}>
-                      {a.athlete_count ? `${a.athlete_count.toLocaleString()} proxy athletes` : "Functional profile"}
-                    </div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">{a.label}</h3>
+                    <div className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em] mt-1">Functional DNA</div>
                   </div>
                 </div>
 
-                {/* Description */}
-                <p style={{ fontSize: 13, color: C.sub, lineHeight: 1.6, marginBottom: 14 }}>{a.description}</p>
+                <p className="text-slate-500 text-base leading-relaxed mb-10 font-medium opacity-80">
+                  {a.description}
+                </p>
 
-                {/* Stats */}
-                {(a.avg_height || a.avg_weight || a.medal_rate) && (
-                  <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                    {a.avg_height != null && (
-                      <div style={{
-                        background: "#F9FAFB", border: `1px solid ${C.border}`,
-                        borderRadius: 10, padding: "7px 10px", flex: 1, textAlign: "center",
-                      }}>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: C.navy, lineHeight: 1 }}>{a.avg_height}</div>
-                        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, letterSpacing: "0.09em", marginTop: 3 }}>AVG CM</div>
-                      </div>
-                    )}
-                    {a.avg_weight != null && (
-                      <div style={{
-                        background: "#F9FAFB", border: `1px solid ${C.border}`,
-                        borderRadius: 10, padding: "7px 10px", flex: 1, textAlign: "center",
-                      }}>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: C.navy, lineHeight: 1 }}>{a.avg_weight}</div>
-                        <div style={{ fontSize: 9, color: C.muted, fontWeight: 700, letterSpacing: "0.09em", marginTop: 3 }}>AVG KG</div>
-                      </div>
-                    )}
-                    {a.medal_rate != null && (
-                      <div style={{
-                        background: "#FFFBEE", border: `1px solid ${C.goldAccent}35`,
-                        borderRadius: 10, padding: "7px 10px", flex: 1, textAlign: "center",
-                      }}>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{a.medal_rate}%</div>
-                        <div style={{ fontSize: 9, color: C.gold, fontWeight: 700, letterSpacing: "0.09em", marginTop: 3, opacity: 0.75 }}>MEDAL RATE</div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Sport tags — blue pills matching screenshot 1 */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {(a.paralympic_sports ?? []).slice(0, 3).map(s => (
-                    <span key={s} style={{
-                      background: C.tagBg, border: `1px solid ${C.tagBorder}`,
-                      borderRadius: 99, padding: "3px 10px",
-                      fontSize: 11, color: C.tagText, fontWeight: 600,
-                    }}>{s}</span>
-                  ))}
-                </div>
-
-                {/* Expand CTA */}
-                <div style={{
-                  marginTop: 14, paddingTop: 12,
-                  borderTop: `1px solid ${isActive ? `${C.borderActive}30` : C.border}`,
-                  fontSize: 11.5, color: isActive ? C.borderActive : C.goldAccent,
-                  fontWeight: 700, fontStyle: "italic",
-                  display: "flex", alignItems: "center", gap: 5,
-                  letterSpacing: "0.01em",
-                }}>
-                  <span style={{ fontSize: 12 }}>✨</span>
-                  <span>{isActive ? "Collapse Gemini Analysis ▲" : "Open Gemini Classification Analysis ▼"}</span>
-                </div>
-              </motion.button>
-            );
-          })}
-        </motion.div>
-
-        {/* ── Gemini Panel — slides in below the grid ── */}
-        <AnimatePresence>
-          {selected && (
-            <motion.div
-              ref={panelRef}
-              key={selected.id}
-              initial={{ opacity: 0, y: 20, scale: 0.99 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.99 }}
-              transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-              style={{ transformOrigin: "top center", scrollMarginTop: 24 }}
-            >
-              <div style={{
-                background: C.card,
-                border: `1.5px solid ${C.border}`,
-                borderRadius: 24, padding: "32px 36px",
-                boxShadow: "0 4px 32px rgba(0,0,0,0.08), 0 1px 6px rgba(0,0,0,0.04)",
-              }}>
-                {/* Panel header — matches screenshot 2 exactly */}
-                <div style={{
-                  display: "flex", alignItems: "flex-start",
-                  justifyContent: "space-between",
-                  marginBottom: 22, flexWrap: "wrap", gap: 16,
-                }}>
-                  {/* Left: icon + title */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <span style={{
-                      fontSize: 28, background: `${selected.color}14`, borderRadius: 14,
-                      width: 56, height: 56,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      flexShrink: 0,
-                    }}>{selected.icon}</span>
-                    <div>
-                      <div style={{
-                        fontWeight: 900, fontSize: 22, color: C.navy,
-                        letterSpacing: "-0.025em", lineHeight: 1.2,
-                      }}>
-                        {selected.label}
-                      </div>
-                      <div style={{ fontSize: 12.5, color: C.muted, marginTop: 3, fontWeight: 400 }}>
-                        Gemini-Powered IPC Classification Analysis
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right: segmented tab control */}
-                  <div style={{
-                    display: "flex",
-                    background: C.tabBg,
-                    border: `1px solid ${C.border}`,
-                    borderRadius: 12, padding: 3,
-                    gap: 2, alignSelf: "flex-start",
-                  }}>
-                    {TABS.map(tab => (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        style={{
-                          background: activeTab === tab.id ? C.tabBgActive : "transparent",
-                          border: "none",
-                          borderRadius: 9, padding: "7px 16px",
-                          fontSize: 12.5, fontWeight: activeTab === tab.id ? 700 : 500,
-                          color: activeTab === tab.id ? C.tabActive : C.tabInactive,
-                          cursor: "pointer", transition: "all 0.18s",
-                          boxShadow: activeTab === tab.id ? "0 1px 6px rgba(0,0,0,0.1)" : "none",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Sport pills — blue outlined (matches screenshot 2) */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
-                  {(selected.paralympic_sports ?? []).map(s => (
-                    <span key={s} style={{
-                      background: C.tagBg, border: `1px solid ${C.tagBorder}`,
-                      borderRadius: 99, padding: "5px 14px",
-                      fontSize: 12.5, color: C.tagText, fontWeight: 600,
-                      display: "flex", alignItems: "center", gap: 5,
-                    }}>
-                      <span style={{ fontSize: 11 }}>♿</span> {s}
+                <div className="flex flex-wrap gap-2 mb-10">
+                  {a.paralympic_sports?.slice(0, 3).map(s => (
+                    <span key={s} className="bg-indigo-50 border border-indigo-100 text-indigo-600 text-[10px] font-black px-4 py-1.5 rounded-full uppercase tracking-tighter shadow-sm">
+                      {s}
                     </span>
                   ))}
                 </div>
 
-                {/* Horizontal rule */}
-                <div style={{ height: 1, background: C.border, marginBottom: 24 }} />
+                <div className={`
+                  flex items-center gap-3 text-xs font-black transition-colors duration-300 pt-6 border-t border-slate-50
+                  ${isActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-600"}
+                `}>
+                  <Sparkles className="w-4 h-4" />
+                  {isActive ? "Deep-Dive Active" : "View Gemini Analysis"}
+                  <div className="ml-auto bg-slate-50 p-1.5 rounded-full group-hover:bg-indigo-50 transition-colors">
+                    {isActive ? <ChevronUp className="w-4 h-4 text-indigo-600" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
 
-                {/* Content area */}
-                <AnimatePresence mode="wait">
-                  {loading ? (
-                    <motion.div
-                      key="loading"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+        {/* Gemini Analysis Panel */}
+        <AnimatePresence mode="wait">
+          {selected && (
+            <motion.div
+              key={selected.id}
+              ref={panelRef}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white border-2 border-indigo-600 rounded-[56px] p-10 md:p-16 shadow-[0_50px_100px_-20px_rgba(79,70,229,0.15)] scroll-mt-24 relative overflow-hidden"
+            >
+              {/* Animated Background Accent */}
+              <div className="absolute top-0 right-0 w-64 h-64 blur-[120px] opacity-10 rounded-full animate-pulse" style={{ backgroundColor: selected.color }} />
+              
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-12 mb-12 pb-12 border-b border-slate-100 relative z-10">
+                <div className="flex items-center gap-8">
+                  <motion.div 
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    className="w-20 h-20 rounded-[32px] flex items-center justify-center text-5xl shadow-2xl"
+                    style={{ background: `${selected.color}15` }}
+                  >
+                    {selected.icon}
+                  </motion.div>
+                  <div>
+                    <h3 className="text-3xl font-black text-slate-900 tracking-tight mb-1">{selected.label}</h3>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                      <p className="text-indigo-500 text-xs font-black uppercase tracking-[0.2em]">Gemini Functional Alignment Analysis</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex bg-slate-50 border border-slate-100 rounded-[28px] p-1.5 gap-1.5 shadow-inner">
+                  {[
+                    { id: "overview", label: "Overview", icon: LayoutGrid },
+                    { id: "classes", label: "Classification", icon: ClipboardCheck },
+                    { id: "legacy", label: "USA Legacy", icon: History },
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`
+                        flex items-center gap-3 px-6 py-3 rounded-2xl text-[11px] font-black transition-all duration-300
+                        ${activeTab === tab.id 
+                          ? "bg-white text-indigo-600 shadow-xl shadow-indigo-900/10 ring-1 ring-slate-200" 
+                          : "text-slate-400 hover:text-slate-600 hover:bg-white/50"}
+                      `}
                     >
-                      <LoadingState color={selected.color} />
-                    </motion.div>
-                  ) : explainer ? (
-                    <motion.div
-                      key={activeTab}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.28 }}
-                    >
-                      {activeTab === "overview" && (
-                        <Markdown text={filterSection(explainer, ["Classification System Overview", "Biometric"])} />
-                      )}
-                      {activeTab === "classes" && (
-                        <Markdown text={filterSection(explainer, ["Classes for This Archetype", "Training"])} />
-                      )}
-                      {activeTab === "legacy" && (
-                        <Markdown text={filterSection(explainer, ["Team USA Legacy", "Training"])} />
-                      )}
-                      {/* Attribution */}
-                      <div style={{
-                        marginTop: 28, padding: "11px 15px",
-                        background: "#F9FAFB", border: `1px solid ${C.border}`,
-                        borderRadius: 9,
-                        fontSize: 11.5, color: C.muted,
-                        display: "flex", alignItems: "center", gap: 7,
-                        letterSpacing: "0.01em",
-                      }}>
-                        <span style={{ fontSize: 12 }}>✨</span>
-                        Generated by Gemini · Based on IPC classification guidelines and historical Team USA performance data
-                      </div>
-                    </motion.div>
-                  ) : (
-                    <motion.div
-                      key="placeholder"
-                      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                      style={{ color: C.muted, fontSize: 13.5, padding: "12px 0" }}
-                    >
-                      Preparing classification analysis…
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                      <tab.icon className="w-4 h-4" />
+                      {tab.label.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {loading ? (
+                <LoadingState color={selected.color} />
+              ) : (
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4 }}
+                  className="min-h-[400px] relative z-10"
+                >
+                  <Markdown text={sections[activeTab]} />
+                  
+                  <motion.div 
+                    variants={itemVariants}
+                    className="mt-16 p-10 bg-slate-50 rounded-[40px] border border-slate-100 flex items-start gap-6 relative overflow-hidden group hover:border-indigo-100 transition-colors"
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 blur-3xl opacity-5 bg-indigo-600 group-hover:opacity-10 transition-opacity" />
+                    <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0 group-hover:scale-110 transition-transform">
+                      <Info className="w-6 h-6 text-indigo-600" />
+                    </div>
+                    <div>
+                      <p className="text-[13px] text-slate-500 font-bold leading-relaxed mb-3">
+                        COMPLIANCE NOTE: Paralympic classification is a medical process conducted by the IPC. 
+                        This AI analysis provides biometric alignment insights for educational purposes only.
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <div className="px-3 py-1 bg-white border border-slate-200 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          Gemini Flash 1.5
+                        </div>
+                        <div className="px-3 py-1 bg-white border border-slate-200 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          IPC Class Standards
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
     </section>
   );
-}
-
-// ── Section extractor ─────────────────────────────────────────────────────────
-function filterSection(text: string, keywords: string[]): string {
-  const lines = text.split("\n");
-  const result: string[] = [];
-  let capturing = false;
-  for (const line of lines) {
-    if (line.startsWith("## ")) {
-      const heading = line.slice(3).toLowerCase();
-      const matches = keywords.some(k => heading.includes(k.toLowerCase()));
-      if (matches) { capturing = true; result.push(line); continue; }
-      else if (capturing) break;
-    } else if (capturing) {
-      result.push(line);
-    }
-  }
-  return result.length > 3 ? result.join("\n") : text;
 }

@@ -1,16 +1,10 @@
 <div align="center">
-
 <br/>
-
 <img src="https://img.shields.io/badge/🏅-Team%20USA%20Digital%20Mirror-C9A227?style=for-the-badge&labelColor=020817" alt="Team USA Digital Mirror"/>
-
 <br/><br/>
-
 **An AI-powered sports analytics platform that finds your Olympic DNA.**  
 *Enter your biometrics. Discover your athlete archetype. Explore 120 years of Team USA history.*
-
 <br/>
-
 [![Live App](https://img.shields.io/badge/🌐%20Live%20App-teamusa--8b1ba.web.app-C9A227?style=for-the-badge&labelColor=0f172a)](https://teamusa-8b1ba.web.app)
 [![API Docs](https://img.shields.io/badge/📡%20API%20Docs-Swagger%20UI-009688?style=for-the-badge&labelColor=0f172a)](https://teamusa-oracle-api-789615763226.us-central1.run.app/docs)
 [![Hackathon](https://img.shields.io/badge/🏆%20Vibe%20Code%20for%20Gold-Google%20Cloud-4285F4?style=for-the-badge&labelColor=0f172a)](https://vibecodeforgoldwithgoogle.devpost.com/)

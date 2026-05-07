@@ -536,12 +536,15 @@ Always use conditional phrasing.
                 pending_transcript: list = []  # accumulate transcript fragments
                 db_inject_lock = asyncio.Lock()
                 db_inject_in_flight = False  # suppress duplicate output_transcription when DB answer is pending
+                db_turn_pending = False       # True when Gemini is speaking the injected DB answer
+                last_question_hash = None     # dedup guard: ignore duplicate user questions
 
                 async def run_db_and_inject(question: str):
                     """Run the real SQL engine and inject the grounded answer."""
-                    nonlocal db_inject_in_flight
+                    nonlocal db_inject_in_flight, db_turn_pending
                     async with db_inject_lock:
                         db_inject_in_flight = True
+                        db_turn_pending = False
                         print(f"[DB hybrid] SQL query for: {question!r}")
                         loop = asyncio.get_event_loop()
                         try:
@@ -567,18 +570,23 @@ Always use conditional phrasing.
                                 pass
 
                         # Send the DB-grounded answer as the single authoritative text
-                        # (output_transcription is suppressed while db_inject_in_flight to avoid duplication)
+                        # output_transcription is suppressed while db_inject_in_flight is True
                         try:
                             await websocket.send_json({"type": "live_text", "text": answer})
                         except RuntimeError as e:
                             if "Unexpected ASGI message" in str(e):
                                 db_inject_in_flight = False
+                                db_turn_pending = False
                                 return  # Client disconnected
                             pass
                         except Exception:
                             pass
 
-                        # Inject the DB answer back so Gemini speaks it
+                        # Mark that we're waiting for Gemini to speak the injected answer.
+                        # Keep db_inject_in_flight=True so output_transcription stays gated
+                        # until the spoken-answer turn_complete fires.
+                        db_turn_pending = True
+
                         inject_prompt = (
                             f"The database returned this verified answer for '{question}':\n\n"
                             f"{answer}\n\n"
@@ -596,9 +604,10 @@ Always use conditional phrasing.
                             )
                         except Exception as e:
                             print(f"[DB hybrid] inject error: {e}")
-                        # NOTE: keep db_inject_in_flight=True until turn_complete arrives
-                        # so that output_transcription and model_turn text are suppressed.
-                        # It is reset in the receive loop on turn_complete below.
+                            db_inject_in_flight = False
+                            db_turn_pending = False
+                        # NOTE: db_inject_in_flight and db_turn_pending reset when
+                        # the spoken-answer turn_complete arrives in the receive loop.
 
                 try:
                     while True:
@@ -634,10 +643,13 @@ Always use conditional phrasing.
                                 full_question = " ".join(pending_transcript).strip()
                                 pending_transcript.clear()
                                 if full_question:
-                                    if db_inject_lock.locked():
-                                        print(f"[User said (ignored, db running)]: {full_question!r}")
+                                    # Dedup: drop if identical question is still being processed
+                                    import hashlib
+                                    qhash = hashlib.md5(full_question.encode()).hexdigest()
+                                    if db_inject_lock.locked() or qhash == last_question_hash:
+                                        print(f"[User said (ignored, db running or duplicate)]: {full_question!r}")
                                         continue
-                                    
+                                    last_question_hash = qhash
                                     print(f"[User said (complete)]: {full_question!r}")
                                     # Send user speech to browser for display in chat overlay
                                     try:
@@ -670,7 +682,17 @@ Always use conditional phrasing.
 
                             if sc and sc.turn_complete:
                                 print("[Gemini] Turn complete.")
-                                db_inject_in_flight = False  # safe to ungate now
+                                # Only unlock the output gate once the spoken-answer turn completes.
+                                # db_turn_pending=True means Gemini just finished speaking the
+                                # injected DB answer — safe to fully unlock now.
+                                if db_turn_pending:
+                                    db_inject_in_flight = False
+                                    db_turn_pending = False
+                                    last_question_hash = None  # allow fresh question
+                                    print("[DB hybrid] Gate lifted — ready for next question")
+                                elif not db_inject_lock.locked():
+                                    # No DB operation running; always safe to clear flags
+                                    db_inject_in_flight = False
                                 try:
                                     await websocket.send_json({"type": "turn_complete"})
                                 except RuntimeError:

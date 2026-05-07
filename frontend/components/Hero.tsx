@@ -40,6 +40,34 @@ export function Hero({ stats }: { stats: DatasetStats | null }) {
         </div>
       )}
 
+      {/* Primary CTA */}
+      <div style={{ marginTop: 40, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        <button
+          id="hero-cta"
+          onClick={() => document.getElementById("mirror-main")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+          style={{
+            padding: "16px 40px",
+            background: "linear-gradient(135deg, #C9A227, #B8860B)",
+            color: "#020817",
+            border: "none",
+            borderRadius: 16,
+            fontSize: 17,
+            fontWeight: 900,
+            cursor: "pointer",
+            boxShadow: "0 8px 32px rgba(201,162,39,0.45), 0 2px 8px rgba(201,162,39,0.2)",
+            transition: "transform 0.18s, box-shadow 0.18s",
+            letterSpacing: "-0.02em",
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 12px 40px rgba(201,162,39,0.55)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 32px rgba(201,162,39,0.45)"; }}
+        >
+          🔍 Find My Archetype →
+        </button>
+        <p style={{ fontSize: 12, color: "var(--text-sub)", margin: 0 }}>
+          Enter your height &amp; weight — takes 5 seconds
+        </p>
+      </div>
+
     </section>
   );
 }

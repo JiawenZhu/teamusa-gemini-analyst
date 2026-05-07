@@ -66,7 +66,42 @@ export function ChatPanel({
       {/* AI Guidelines collapsible panel */}
       <AIGuidelinesPanel />
 
-      <div ref={chatContainerRef} style={{ minHeight: 180, maxHeight: 500, overflowY: "auto", margin: "16px 0 24px 0", paddingRight: 8, display: "flex", flexDirection: "column", gap: 24 }}>
+      <div ref={chatContainerRef} style={{ minHeight: 180, maxHeight: 500, overflowY: "auto", margin: "16px 0 16px 0", paddingRight: 8, display: "flex", flexDirection: "column", gap: 24 }}>
+        {/* ── Empty state with starter chips ── */}
+        {chat.length === 0 && !chatLoading && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "16px 0 8px", gap: 14 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 26, marginBottom: 6 }}>✨</div>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text-main)", margin: "0 0 3px" }}>Your AI analyst is ready</p>
+              <p style={{ fontSize: 12.5, color: "var(--text-sub)", margin: 0, lineHeight: 1.5 }}>Ask anything about your archetype, Olympic history, or Team USA</p>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", maxWidth: 500 }}>
+              {[
+                { icon: "🏊", text: "Which sports best match my archetype?" },
+                { icon: "👩", text: "How have women's participation rates changed?" },
+                { icon: "🥇", text: "What's my archetype's medal rate in history?" },
+                { icon: "🌍", text: "Tell me about the 1984 Los Angeles Games" },
+              ].map(({ icon, text }) => (
+                <button
+                  key={text}
+                  onClick={() => { setMsg(text); setTimeout(() => doChat(), 60); }}
+                  style={{
+                    background: `${result.archetype.color}12`,
+                    border: `1px solid ${result.archetype.color}35`,
+                    borderRadius: 99, padding: "8px 16px",
+                    fontSize: 13, color: "var(--text-main)",
+                    cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+                    transition: "all 0.2s", fontWeight: 500,
+                  }}
+                  onMouseEnter={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = `${result.archetype.color}25`; b.style.borderColor = `${result.archetype.color}60`; }}
+                  onMouseLeave={e => { const b = e.currentTarget as HTMLButtonElement; b.style.background = `${result.archetype.color}12`; b.style.borderColor = `${result.archetype.color}35`; }}
+                >
+                  <span>{icon}</span><span>{text}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {chat.map((m, i) => (
           <motion.div
             initial={{ opacity: 0, y: 15, scale: 0.98 }}

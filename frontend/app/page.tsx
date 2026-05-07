@@ -14,7 +14,7 @@ import { TimelineChart } from "@/components/TimelineChart";
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 import GlobeScene from "@/components/globe/GlobeScene";
 import FullscreenGlobe from "@/components/globe/FullscreenGlobe";
-import { FeaturesNav } from "@/components/FeaturesNav";
+import { StepNav } from "@/components/StepNav";
 import { AnimatePresence } from "framer-motion";
 
 export default function Page() {
@@ -50,6 +50,9 @@ export default function Page() {
   const [pendingChatTopic, setPendingChatTopic] = useState<string | null>(null);
   const [pendingGlobe, setPendingGlobe] = useState(false);
 
+  // Progress bar step (1 = Match, 2 = Chat, 3 = Discover)
+  const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
+
   const openFullscreenGlobe = () => {
     if (!result) {
       setPendingGlobe(true);
@@ -73,6 +76,10 @@ export default function Page() {
 
   const resultRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  // Tracks latest chat array for history without closure-staleness
+  const chatHistoryRef = useRef<{ role: string; text: string; sealed?: boolean }[]>([]);
+  // Tracks when doChat streaming is active so live_text events don't duplicate
+  const isStreamingChatRef = useRef(false);
 
   useEffect(() => {
     // Backend warm-up: fire /health immediately so Cloud Run container is warm
@@ -113,6 +120,7 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
+    chatHistoryRef.current = chat;
     if (chatContainerRef.current) {
       chatContainerRef.current.scrollTo({
         top: chatContainerRef.current.scrollHeight,
@@ -138,6 +146,7 @@ export default function Page() {
         setGlitchArch(null);
         setResult(r);
         setMatching(false);
+        setCurrentStep(prev => (prev < 2 ? 2 : prev) as 1 | 2 | 3);
       }
     }, 100);
   }, [h, w, age, archetypes, mode]);
@@ -170,6 +179,8 @@ export default function Page() {
       const role: string = typeof detail === "object" && detail?.role === "user" ? "user" : "model";
 
       if (!text) return;
+      // Suppress live_text during doChat streaming — prevents triple-write
+      if (isStreamingChatRef.current) return;
 
       setChat(prev => {
         // User voice utterances are always complete — each gets its own sealed bubble.
@@ -243,24 +254,32 @@ export default function Page() {
 
   const doChat = useCallback(async () => {
     if (!msg.trim() || !result) return;
-    const currentChat = [...chat, { role: "user", text: msg }];
+
+    // Snapshot history from ref (avoids stale closure bug)
+    const historySnapshot = chatHistoryRef.current;
+    const currentChat = [...historySnapshot, { role: "user", text: msg }];
     setChat(currentChat);
+    chatHistoryRef.current = currentChat;
     setMsg("");
     setCL(true);
     const m = msg;
 
     if (voiceEnabled) {
       let rendered = "";
+      isStreamingChatRef.current = true;
       setChat(c => [...c, { role: "bot", text: "" }]);
 
       try {
         await sendChatStream(
           m,
           result.archetype_id,
-          chat,
+          historySnapshot,
           { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined },
-          async (text) => {
-            rendered += (rendered ? " " : "") + text;
+          (text) => {
+            // Strip raw backend tool calls that shouldn't render
+            const clean = text.replace(/trigger_map_view\([^)]*\)/g, "").trim();
+            if (!clean) return;
+            rendered += (rendered ? " " : "") + clean;
             setChat(c => {
               const updated = [...c];
               updated[updated.length - 1] = { role: "bot", text: rendered };
@@ -268,21 +287,24 @@ export default function Page() {
             });
           },
           (fullText) => {
+            // Strip raw tool calls from the final text too
+            const cleanFull = fullText.replace(/trigger_map_view\([^)]*\)/g, "").trim();
             setChat(c => {
               const updated = [...c];
-              updated[updated.length - 1] = { role: "bot", text: fullText || rendered };
+              updated[updated.length - 1] = { role: "bot", text: cleanFull || rendered };
               return updated;
             });
+            isStreamingChatRef.current = false;
             setCL(false);
-            playNativeTTS(fullText || rendered);
+            playNativeTTS(cleanFull || rendered);
           },
           undefined, // signal
-          // Feature B: Globe city trigger callback
           (city, lat, lng) => fireTriggerCity(city, lat, lng),
         );
       } catch (err) {
         console.warn("Stream failed, falling back:", err);
-        const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, chat, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
+        isStreamingChatRef.current = false;
+        const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, historySnapshot, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
         if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
         setChat(c => {
           const updated = [...c];
@@ -293,19 +315,48 @@ export default function Page() {
         if (reply) playNativeTTS(reply);
       }
     } else {
-      // Non-streaming path — use sendChat and extract mapTrigger from response
-      const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, chat, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
+      // Non-streaming path
+      const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, historySnapshot, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
       if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
       setChat(c => [...c, { role: "bot", text: reply }]);
       setCL(false);
     }
-  }, [msg, result, chat, voiceEnabled, playNativeTTS, h, w, age]);
+  }, [msg, result, voiceEnabled, playNativeTTS, h, w, age]);
 
   const bgAccent = result?.archetype?.color || glitchArch?.color || "transparent";
   const accent = result?.archetype?.color || "#C9A227";
 
+  // ── IntersectionObserver: advance step 3 when globe / discover sections enter view ──
+  useEffect(() => {
+    if (!result) return;
+    const ids = ["globe-section", "archetypes-section"];
+    const targets = ids.map(id => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    if (targets.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const anyVisible = entries.some(e => e.isIntersecting);
+        if (anyVisible) setCurrentStep(3);
+        else {
+          // All globe/discover targets out of view — fall back to step 2
+          const allOut = ids.every(id => {
+            const el = document.getElementById(id);
+            if (!el) return true;
+            const rect = el.getBoundingClientRect();
+            return rect.bottom < 0 || rect.top > window.innerHeight;
+          });
+          if (allOut) setCurrentStep(prev => (prev > 2 ? 2 : prev) as 1 | 2 | 3);
+        }
+      },
+      { threshold: 0.12 }
+    );
+    targets.forEach(t => observer.observe(t));
+    return () => observer.disconnect();
+  }, [result]);
+
   return (
     <>
+    <StepNav step={currentStep} />
     <main style={{ background: "transparent", minHeight: "100vh", color: "var(--text-main)", position: "relative", overflow: "hidden" }}>
 
       {/* Globe fly-to toast */}
@@ -427,11 +478,6 @@ export default function Page() {
         
         <Hero stats={stats} />
 
-        <FeaturesNav 
-          onOpenModal={() => setShowStatsModal(true)} 
-          onOpenFullscreenMap={openFullscreenGlobe} 
-        />
-
         {/* ── SHARED VIEW BANNER ───────────────────────────────────── */}
         {isSharedView && (
           <motion.div
@@ -459,128 +505,7 @@ export default function Page() {
           </motion.div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════
-             PREMIUM 3D GLOBE SECTION — Full-width dark space panel
-        ════════════════════════════════════════════════════════════════ */}
-        <section id="globe-section" style={{
-          width: "100%",
-          background: "linear-gradient(180deg, #020817 0%, #040f2a 100%)",
-          padding: "60px 24px",
-          marginBottom: 40,
-          position: "relative",
-          overflow: "hidden",
-        }}>
-          {/* Subtle space glow behind the globe */}
-          <div style={{
-            position: "absolute", top: "50%", left: "60%",
-            transform: "translate(-50%, -50%)",
-            width: 500, height: 500,
-            background: "radial-gradient(circle, rgba(30,60,140,0.35) 0%, transparent 70%)",
-            pointerEvents: "none"
-          }} />
-
-          <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 40, flexWrap: "wrap" }}>
-            
-            {/* LEFT PANEL — Input UI */}
-            <div style={{ flex: "0 0 360px", minWidth: 280 }}>
-              <p style={{ fontSize: 11, letterSpacing: 3, color: "#4a7fa5", textTransform: "uppercase", marginBottom: 12, fontWeight: 600 }}>🏅 LA28 GAMES DISTANCE TRACKER</p>
-              <h2 style={{ fontSize: 32, fontWeight: 800, color: "white", lineHeight: 1.2, marginBottom: 8 }}>
-                Where will you<br/><span style={{ color: "#FFD700" }}>cheer from?</span>
-              </h2>
-              <p style={{ fontSize: 15, color: "#6b8fa8", marginBottom: 28, lineHeight: 1.6 }}>
-                Enter your city to see how far you are from the LA28 Olympic and Paralympic Games.
-              </p>
-
-              <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
-                <input
-                  type="text"
-                  value={hometown}
-                  onChange={e => setHometown(e.target.value)}
-                  placeholder="e.g. Tokyo, Beijing, London…"
-                  style={{
-                    flex: 1, padding: "13px 16px",
-                    borderRadius: 10,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.07)",
-                    color: "white",
-                    fontSize: 15,
-                    outline: "none",
-                    backdropFilter: "blur(10px)",
-                  }}
-                  onKeyDown={e => e.key === 'Enter' && handleLocationSubmit()}
-                />
-                <button
-                  onClick={handleLocationSubmit}
-                  disabled={locLoading}
-                  style={{
-                    padding: "13px 22px",
-                    background: locLoading ? "#7a6010" : "#C9A227",
-                    color: "#020817",
-                    border: "none",
-                    borderRadius: 10,
-                    fontWeight: 700,
-                    fontSize: 14,
-                    cursor: locLoading ? "wait" : "pointer",
-                    whiteSpace: "nowrap",
-                    transition: "background 0.2s",
-                  }}
-                >
-                  {locLoading ? "Finding…" : "🚀 Fly"}
-                </button>
-              </div>
-
-              {locError && (
-                <p style={{ color: "#fc8181", fontSize: 14, marginBottom: 12 }}>{locError}</p>
-              )}
-
-              {locationData && (
-                <motion.div
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{ padding: "20px", background: "rgba(255,215,0,0.07)", borderRadius: 12, border: "1px solid rgba(255,215,0,0.2)" }}
-                >
-                  <p style={{ color: "#8baec7", fontSize: 13, marginBottom: 4 }}>From {locationData.city} to the LA28 Games</p>
-                  <p style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", lineHeight: 1 }}>
-                    {locationData.distance_miles.toLocaleString()}
-                    <span style={{ fontSize: 16, fontWeight: 400, color: "#a0aec0", marginLeft: 8 }}>miles</span>
-                  </p>
-                  <p style={{ fontSize: 13, color: "#4a7fa5", marginTop: 4 }}>
-                    {locationData.distance_km.toLocaleString()} km · Drag the globe to explore!
-                  </p>
-                </motion.div>
-              )}
-
-              {!locationData && (
-                <p style={{ fontSize: 13, color: "#2d4a63", marginTop: 12 }}>
-                  🖱️ Drag to rotate · Scroll to zoom · Auto-spins when idle
-                </p>
-              )}
-            </div>
-
-            {/* RIGHT PANEL — The 3D Globe */}
-            <div
-              style={{ flex: 1, minWidth: 320, height: 520, position: "relative", cursor: "zoom-in" }}
-              onDoubleClick={openFullscreenGlobe}
-              title="Double-click to open immersive globe"
-            >
-              <GlobeScene
-                userLocation={locationData ? { lat: locationData.lat, lng: locationData.lng, city: locationData.city } : null}
-                triggerCity={triggerCity}
-              />
-              {/* Double-click hint */}
-              <div style={{
-                position: "absolute", bottom: 12, right: 12,
-                background: "rgba(2,8,23,0.75)", border: "1px solid #1e293b",
-                borderRadius: 8, padding: "5px 10px",
-                fontSize: 11, color: "#64748b",
-                backdropFilter: "blur(8px)", pointerEvents: "none",
-              }}>
-                🖱️ Double-click for immersive view
-              </div>
-            </div>
-          </div>
-        </section>
-
+        {/* ── ACT 1: INPUT (Step 1 — always visible) ─────────────────── */}
         <InputSection 
           id="mirror-main"
           h={h} setH={setH} w={w} setW={setW} age={age} setAge={setAge}
@@ -588,7 +513,8 @@ export default function Page() {
           mode={mode} setMode={setMode}
         />
 
-        {/* ── RESULTS & GLITCH REVEAL ────────────────────────────────────── */}
+        {/* ── ACT 1 RESULTS: Archetype reveal ──────────────────────── */}
+
         {(result || glitchArch) && (
           <>
             <MatchResultPanel 
@@ -597,39 +523,185 @@ export default function Page() {
             />
             
             {result && (
-              <section id="chat-panel" style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px 64px" }}>
-                <ChatPanel 
-                  result={result}
-                  chat={chat} msg={msg} setMsg={setMsg} chatLoading={chatLoading} doChat={doChat}
-                  voiceEnabled={voiceEnabled} setVoiceEnabled={setVoiceEnabled} stopAudio={stopAudio}
-                  isSpeaking={isSpeaking} micState={micState}
-                  startListening={() => startListening("User biometrics: " + (result?.archetype.description || ""), result?.archetype_id)}
-                  stopListening={stopListening}
-                  chatContainerRef={chatContainerRef}
-                />
-              </section>
+              <>
+                {/* ── ACT 2 UNLOCK BANNER ─────────────────────────────────── */}
+                <motion.div
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.5 }}
+                  style={{
+                    maxWidth: 900, margin: "0 auto 8px", padding: "0 16px",
+                  }}
+                >
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 12,
+                    background: `linear-gradient(90deg, ${result.archetype.color}18, ${result.archetype.color}06)`,
+                    border: `1px solid ${result.archetype.color}35`,
+                    borderRadius: 14, padding: "14px 20px",
+                  }}>
+                    <span style={{ fontSize: 20 }}>✨</span>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "var(--text-main)" }}>Step 2: Explore your archetype</p>
+                      <p style={{ margin: 0, fontSize: 12, color: "var(--text-sub)", marginTop: 2 }}>Your Gemini analyst is ready — ask anything below. Mention a city and the globe will fly there automatically.</p>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* ── CHAT PANEL ──────────────────────────────────────────── */}
+                <section id="chat-panel" style={{ maxWidth: 900, margin: "0 auto", padding: "0 16px 40px" }}>
+                  <ChatPanel 
+                    result={result}
+                    chat={chat} msg={msg} setMsg={setMsg} chatLoading={chatLoading} doChat={doChat}
+                    voiceEnabled={voiceEnabled} setVoiceEnabled={setVoiceEnabled} stopAudio={stopAudio}
+                    isSpeaking={isSpeaking} micState={micState}
+                    startListening={() => startListening("User biometrics: " + (result?.archetype.description || ""), result?.archetype_id)}
+                    stopListening={stopListening}
+                    chatContainerRef={chatContainerRef}
+                  />
+                </section>
+
+                {/* ── GLOBE SECTION (contextual — after chat) ─────────────── */}
+                <section id="globe-section" style={{
+                  width: "100%",
+                  background: "linear-gradient(180deg, #020817 0%, #040f2a 100%)",
+                  padding: "60px 24px",
+                  marginBottom: 40,
+                  position: "relative",
+                  overflow: "hidden",
+                }}>
+                  <div style={{
+                    position: "absolute", top: "50%", left: "60%",
+                    transform: "translate(-50%, -50%)",
+                    width: 500, height: 500,
+                    background: "radial-gradient(circle, rgba(30,60,140,0.35) 0%, transparent 70%)",
+                    pointerEvents: "none"
+                  }} />
+                  {/* Section context label */}
+                  <div style={{ textAlign: "center", marginBottom: 40 }}>
+                    <p style={{ fontSize: 11, letterSpacing: 3, color: "#4a7fa5", textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>🌍 INTERACTIVE WORLD MAP</p>
+                    <h2 style={{ fontSize: 28, fontWeight: 800, color: "white", lineHeight: 1.2, margin: "0 0 8px" }}>
+                      Ask about any city — <span style={{ color: "#FFD700" }}>the globe flies there</span>
+                    </h2>
+                    <p style={{ fontSize: 14, color: "#6b8fa8", maxWidth: 480, margin: "0 auto" }}>Mention a host city in the chat above and watch the globe navigate automatically. Or enter your hometown to see your distance to LA28.</p>
+                  </div>
+
+                  <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", gap: 40, flexWrap: "wrap" }}>
+                    <div style={{ flex: "0 0 320px", minWidth: 260 }}>
+                      <p style={{ fontSize: 11, letterSpacing: 3, color: "#4a7fa5", textTransform: "uppercase", marginBottom: 12, fontWeight: 600 }}>🏅 LA28 DISTANCE TRACKER</p>
+                      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+                        <input
+                          type="text"
+                          value={hometown}
+                          onChange={e => setHometown(e.target.value)}
+                          placeholder="e.g. Tokyo, New York, London…"
+                          style={{
+                            flex: 1, padding: "13px 16px", borderRadius: 10,
+                            border: "1px solid rgba(255,255,255,0.12)",
+                            background: "rgba(255,255,255,0.07)",
+                            color: "white", fontSize: 15, outline: "none",
+                            backdropFilter: "blur(10px)",
+                          }}
+                          onKeyDown={e => e.key === 'Enter' && handleLocationSubmit()}
+                        />
+                        <button
+                          onClick={handleLocationSubmit}
+                          disabled={locLoading}
+                          style={{
+                            padding: "13px 22px",
+                            background: locLoading ? "#7a6010" : "#C9A227",
+                            color: "#020817", border: "none", borderRadius: 10,
+                            fontWeight: 700, fontSize: 14,
+                            cursor: locLoading ? "wait" : "pointer",
+                            whiteSpace: "nowrap", transition: "background 0.2s",
+                          }}
+                        >
+                          {locLoading ? "Finding…" : "🚀 Fly"}
+                        </button>
+                      </div>
+                      {locError && <p style={{ color: "#fc8181", fontSize: 14, marginBottom: 12 }}>{locError}</p>}
+                      {locationData && (
+                        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                          style={{ padding: "20px", background: "rgba(255,215,0,0.07)", borderRadius: 12, border: "1px solid rgba(255,215,0,0.2)" }}
+                        >
+                          <p style={{ color: "#8baec7", fontSize: 13, marginBottom: 4 }}>From {locationData.city} to the LA28 Games</p>
+                          <p style={{ fontSize: 36, fontWeight: 900, color: "#FFD700", lineHeight: 1 }}>
+                            {locationData.distance_miles.toLocaleString()}
+                            <span style={{ fontSize: 16, fontWeight: 400, color: "#a0aec0", marginLeft: 8 }}>miles</span>
+                          </p>
+                          <p style={{ fontSize: 13, color: "#4a7fa5", marginTop: 4 }}>{locationData.distance_km.toLocaleString()} km · Drag the globe to explore!</p>
+                        </motion.div>
+                      )}
+                      {!locationData && <p style={{ fontSize: 13, color: "#2d4a63", marginTop: 12 }}>🖱️ Drag to rotate · Scroll to zoom · Auto-spins when idle</p>}
+                    </div>
+
+                    <div
+                      style={{ flex: 1, minWidth: 320, height: 520, position: "relative", cursor: "zoom-in" }}
+                      onDoubleClick={openFullscreenGlobe}
+                      title="Double-click to open immersive globe"
+                    >
+                      <GlobeScene
+                        userLocation={locationData ? { lat: locationData.lat, lng: locationData.lng, city: locationData.city } : null}
+                        triggerCity={triggerCity}
+                      />
+                      <div style={{
+                        position: "absolute", bottom: 12, right: 12,
+                        background: "rgba(2,8,23,0.75)", border: "1px solid #1e293b",
+                        borderRadius: 8, padding: "5px 10px",
+                        fontSize: 11, color: "#64748b",
+                        backdropFilter: "blur(8px)", pointerEvents: "none",
+                      }}>🖱️ Double-click for immersive view</div>
+                    </div>
+                  </div>
+                </section>
+              </>
             )}
           </>
         )}
 
-        <ArchetypeExplorer 
-          archetypes={archetypes} stats={stats}
-          selected={selected} setSelected={setSelected}
-        />
+        {/* ── STEP 3: DISCOVER ─────────────────────────────────────────── */}
+        <section style={{
+          background: "linear-gradient(180deg, transparent 0%, rgba(201,162,39,0.03) 30%, transparent 100%)",
+          borderTop: "1px solid rgba(201,162,39,0.10)",
+          paddingTop: 32,
+        }}>
+          {/* Section header */}
+          <div style={{ textAlign: "center", padding: "32px 24px 16px", maxWidth: 700, margin: "0 auto" }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 10,
+              background: "rgba(201,162,39,0.08)",
+              border: "1px solid rgba(201,162,39,0.2)",
+              borderRadius: 99, padding: "8px 22px", marginBottom: 20,
+            }}>
+              <span style={{ fontSize: 18 }}>🌍</span>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.12em", color: "#C9A227", textTransform: "uppercase" }}>Step 3 · Discover</span>
+            </div>
+            <h2 style={{ fontSize: 26, fontWeight: 800, color: "var(--text-main)", margin: "0 0 10px", lineHeight: 1.3 }}>
+              The Full Olympic Universe
+            </h2>
+            <p style={{ fontSize: 14, color: "var(--text-sub)", margin: 0, lineHeight: 1.65 }}>
+              Explore all 6 Team USA athlete archetypes, Paralympic data, and 120 years of Olympic history.
+            </p>
+          </div>
 
-        <ParalympicExplainer
-          paraArchetypes={paraArchetypes}
-          userHeight={h ? parseFloat(h) : undefined}
-          userWeight={w ? parseFloat(w) : undefined}
-        />
+          <ArchetypeExplorer 
+            archetypes={archetypes} stats={stats}
+            selected={selected} setSelected={setSelected}
+          />
 
-        <TimelineChart 
-          timeline={timeline} archetypes={archetypes} result={result}
-          h={h} accent={accent}
-        />
+          <ParalympicExplainer
+            paraArchetypes={paraArchetypes}
+            userHeight={h ? parseFloat(h) : undefined}
+            userWeight={w ? parseFloat(w) : undefined}
+          />
+
+          <TimelineChart 
+            timeline={timeline} archetypes={archetypes} result={result}
+            h={h} accent={accent}
+          />
+        </section>
 
         {/* ── FOOTER ─────────────────────────────────────────────────────── */}
-        <footer style={{ borderTop: "1px solid var(--border-color)", padding: "32px 16px", textAlign: "center", position: "relative", zIndex: 1 }}>
+        <footer style={{ borderTop: "1px solid var(--border-color)", padding: "40px 16px", textAlign: "center", position: "relative", zIndex: 1 }}>
           <p style={{ fontSize: 12, color: "var(--text-sub)", lineHeight: 1.7 }}>
             Built for the{" "}
             <a href="https://vibecodeforgoldwithgoogle.devpost.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#C9A227", fontWeight: 700, textDecoration: "none" }}>

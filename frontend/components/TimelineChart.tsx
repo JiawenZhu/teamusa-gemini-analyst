@@ -45,14 +45,14 @@ export function TimelineChart({
           viewport={{ once: true }}
           className="inline-flex items-center gap-2 bg-slate-900 text-white text-[10px] font-black px-5 py-2 rounded-full uppercase tracking-[0.2em] mb-8 shadow-xl"
         >
-          <Activity className="w-3.5 h-3.5" /> Act 3: Historical DNA
+          <Activity className="w-3.5 h-3.5" /> Act 3: Historical Data
         </motion.div>
         <h2 className="hero-title text-5xl md:text-6xl font-bold text-slate-900 mb-8 tracking-tight">
-          The <span className="text-indigo-600">DNA</span> of Success
+          The <span className="text-indigo-600">Pattern</span> of Champions
         </h2>
         <p className="text-slate-500 max-w-3xl mx-auto text-xl font-medium leading-relaxed">
           See how your biometric profile fits into the 120-year evolution of Team USA. 
-          Every dot represents an Olympian who walked the path before you.
+          Every dot represents a Team USA athlete who competed before you.
         </p>
       </div>
 

@@ -420,6 +420,15 @@ All AI responses are governed by explicit system instructions:
 | **Olympic / Paralympic separated** | The two models are independent; Paralympic analysis always carries the proxy-sports disclaimer |
 | **Historical scope enforced** | AI is scoped to the 1896–2016 dataset; post-2016 questions are explicitly declined |
 
+### ✅ Data-Scope Compliance Attestation
+
+This project explicitly meets the following responsible data-use requirements:
+
+- ✅ **Filtered to US / Team USA scope only** — All biometric clustering, AI analysis, and fan-facing outputs are restricted to historical Team USA (NOC = `USA`) records. No global athlete data is surfaced to end users.
+- ✅ **No finish times or specific scoring results** — The database schema and all 11 Gemini agent tools operate exclusively on biometric fields (`height_cm`, `weight_kg`, `age`), medal outcomes (`Gold/Silver/Bronze/NULL`), and demographic metadata. No race times, scores, or performance rankings are stored or queried.
+- ✅ **No athlete names, images, or likenesses output** — The AI system prompt explicitly prohibits returning individual athlete names or identifiable information. Archetype illustrations are AI-generated representations of body types, not likenesses of real people.
+- ✅ **Fan-facing results are aggregate and conditional** — All outputs presented to users are population-level averages with explicit conditional framing (e.g., *"athletes in this cluster historically showed…"*). No result is presented as a prediction or guarantee about any individual.
+
 ---
 
 ## 📊 Tech Stack

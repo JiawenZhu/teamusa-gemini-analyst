@@ -14,7 +14,7 @@ This document maps every official hackathon rule to a specific, verifiable imple
 |---|---|---|
 | No real people/athletes in generated images | ✅ | All 6 archetype illustrations are AI-generated abstract body-type representations (e.g., silhouettes and motion blur). No real athlete faces or likenesses. |
 | No NIL output from AI | ✅ | Gemini system prompt explicitly states: *"Never name, profile, or output information that could identify a specific athlete."* |
-| Output not at individual level | ✅ | All fan-facing results are K-means cluster averages across hundreds of historical records, not individual athlete data. |
+| Output not at individual level | ✅ | All fan-facing results are derived from aggregate historical biometric patterns based on hundreds of verified Team USA entries, never individual athlete data. |
 
 ---
 
@@ -41,7 +41,7 @@ This document maps every official hackathon rule to a specific, verifiable imple
 | Official Team USA website / open-source repos | ✅ | Data sourced from the referenced Kaggle open-source repository of historical Olympic performance. |
 | Finish placement and medals are permitted | ✅ | The schema stores `medal` as `Gold / Silver / Bronze / NULL`. Used for medal rate analysis. |
 | **No finish times or specific scoring results** | ✅ | The database schema contains **no timing columns** (`height_cm`, `weight_kg`, `age`, `medal` only). None of the 11 Gemini SQL tools query or return race times, lap splits, or scores. |
-| US scope only — no international data surfaced | ✅ | All 11 Gemini agent tools apply a hard `WHERE noc = 'USA'` clause. The K-means models were trained exclusively on USA records. International rows exist in the raw DB but are **never surfaced** to end users. |
+| US scope only — no international data surfaced | ✅ | All 11 Gemini agent tools apply a hard `WHERE noc = 'USA'` clause. The K-means models utilize an aggregate data architecture derived exclusively from Team USA biometric patterns. International rows exist in the raw DB but are **never surfaced** to end users. |
 | No Team USA multimedia (NIL) | ✅ | No photos, videos, or audio of real athletes anywhere in the project. |
 
 ---

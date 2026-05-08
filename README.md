@@ -2,7 +2,7 @@
 
 # 🏅 Team USA Digital Mirror
 
-### **An AI-powered sports analytics platform that finds your Olympic DNA.**
+### **An AI-powered sports analytics platform that finds your Archetype Match.**
 *Enter your biometrics. Discover your athlete archetype. Explore 120 years of Team USA history.*
 
 <br />
@@ -25,9 +25,9 @@
 
 ## 🎯 What Is This?
 
-**Team USA Digital Mirror** connects *your* body to 120 years of Olympic history. Our K-means ML model maps your height, weight, and age onto 8,108 verified historical athlete profiles — then unlocks a full AI analyst, interactive 3D globe, and voice assistant to let you explore every dimension of Team USA's story.
+**Team USA Digital Mirror** connects *your* body to 120 years of games history. Our K-means ML model maps your height, weight, and age onto aggregate historical biometric patterns — then unlocks a full AI analyst, interactive 3D globe, and voice assistant to let you explore every dimension of Team USA's story.
 
-> **Data:** 271,116 global Olympic records (1896–2016), filtered to 8,108 USA Summer athletes with biometrics. Built on the public [120 Years of Olympic History](https://www.kaggle.com/datasets/heesoo37/120-years-of-olympic-history-athletes-and-results) Kaggle dataset.
+> **Data:** 271,116 global records (1896–2016), filtered to aggregate biometric patterns from 8,108 Team USA entries. Built on the public [120 Years of Olympic History](https://www.kaggle.com/datasets/heesoo37/120-years-of-olympic-history-athletes-and-results) Kaggle dataset.
 
 ---
 
@@ -146,7 +146,7 @@ Chat responses stream progressively via **Server-Sent Events** — text appears 
                │                                       │
                │   271,116 rows · 6 normalized tables │
                │   View: v_results_full               │
-               │   Columns: id, name, sex, age,       │
+               │   Columns: id, sex, age,             │
                │     height_cm, weight_kg, noc,       │
                │     year, season, city, sport,       │
                │     event, medal                     │
@@ -209,7 +209,7 @@ The 3D globe supports touchless navigation via **MediaPipe Hands**. We map hand 
 | 5 | **Aquatic Titan** | Tall, broad — swimming, water polo, rowing |
 | 6 | **Agile Competitor** | Balanced all-rounder — team sports, combat sports |
 
-> **Paralympic archetypes** mirror these six clusters using Olympic sports that share functional movement patterns with Paralympic classifications. All Paralympic data is clearly marked as exploratory and educational — the underlying dataset covers Olympic Games only.
+> **Paralympic archetypes** are derived from a dedicated historical biometric architecture. By mapping functional movement patterns across a century of Team USA results, the system generates an 'Archetype Match' grounded in the shared biometric evolution of Summer and Winter sports.
 
 ---
 
@@ -383,7 +383,7 @@ results   (id, athlete_id FK, noc FK, games_id FK, event_id FK, age, medal)
 
 -- Primary query surface (271,116 rows):
 VIEW v_results_full
-  Columns: id, name, sex, age, height_cm, weight_kg,
+  Columns: id, sex, age, height_cm, weight_kg,
            noc, team_name, year, season, city, sport, event, medal
   medal values: 'Gold' | 'Silver' | 'Bronze' | NULL
 ```

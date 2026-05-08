@@ -602,7 +602,7 @@ export default function Page() {
               <p className="text-xs text-slate-400 font-medium max-w-2xl mx-auto leading-relaxed mb-8">
                 Built on the <a href="https://www.kaggle.com/datasets/heesoo37/120-years-of-olympic-history-athletes-and-results/data" target="_blank" rel="noopener noreferrer" className="underline">CC0 Kaggle 120 Years of Olympic History</a> dataset,
                 filtered to aggregate Team USA historical records from 1896–2016. Gemini API powers conditional, educational archetype insights only:
-                “data DNA” is a metaphor, not genetic analysis, medical advice, official Paralympic classification, or a performance prediction.
+                “Archetype Match” is a metaphor, not genetic analysis, medical advice, official Paralympic classification, or a performance prediction.
                 No individual athletes are identified.
               </p>
               

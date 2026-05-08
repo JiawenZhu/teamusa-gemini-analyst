@@ -151,7 +151,7 @@ export function InputSection({
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20A10 10 0 0012 2z" />
           </svg>
           <span>
-            <strong className="font-semibold text-slate-500">Archetype DNA</strong> is a data metaphor based on aggregate historical biometrics — not genetic analysis or a performance prediction.
+            <strong className="font-semibold text-slate-500">Archetype Match</strong> is a data-driven comparison based on aggregate historical biometrics — not genetic analysis or a performance prediction.
           </span>
         </p>
       </div>

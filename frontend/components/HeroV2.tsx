@@ -40,7 +40,7 @@ export function HeroV2({ stats }: { stats: DatasetStats | null }) {
           onClick={() => document.getElementById("mirror-main")?.scrollIntoView({ behavior: "smooth", block: "center" })}
           className="bg-white text-black text-sm font-semibold rounded-full px-6 py-3 hover:bg-neutral-200 transition-colors shadow-[0_0_20px_rgba(201,162,39,0.3)] border border-[#C9A227]/30"
         >
-          find your archetype DNA →
+          find your Archetype Match →
         </button>
       </nav>
 
@@ -61,7 +61,7 @@ export function HeroV2({ stats }: { stats: DatasetStats | null }) {
           your
         </h1>
         <h1 className="hero-title absolute text-white font-medium text-[8vw] md:text-[7vw] left-6 md:left-[20%] top-[68%] text-[#F8FAFC]">
-          archetype DNA
+          Archetype Match
         </h1>
 
         {/* Description Paragraph */}

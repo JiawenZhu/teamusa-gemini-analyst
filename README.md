@@ -3,7 +3,7 @@
 # 🏅 Team USA Digital Mirror
 
 ### **An AI-powered sports analytics platform that finds your Archetype Match.**
-*Enter your biometrics. Discover your athlete archetype. Explore 120 years of Team USA history.*
+*Enter your biometrics. Discover your athlete archetype. Explore 120 years of Team USA sports history.*
 
 <br />
 
@@ -40,8 +40,8 @@
 ║   ─────────────────        ─────────────────        ─────────────────    ║
 ║   Enter height, weight,    Ask the AI Analyst       Explore all 6        ║
 ║   and age. K-means ML      anything about Team       archetypes, Para     ║
-║   finds your Olympic or    USA Olympic history.      data, and 120 yrs   ║
-║   Paralympic archetype     Globe flies to every      of timeline charts. ║
+║   finds your Summer or     USA Olympic history.      data, and 120 yrs   ║
+║   Winter archetype         Globe flies to every      of timeline charts. ║
 ║   in under 50ms.           city Gemini mentions.                         ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
@@ -56,7 +56,7 @@
 <td width="50%">
 
 ### 🏅 Biometric Archetype Matching
-K-means clustering across **6 Olympic** and **6 Paralympic** archetypes. Enter height + weight + age and receive a profile card with your top sports, historical medal rates, and a "Why you match" insight — all grounded in verified data.
+K-means clustering across **6 Summer Games** and **6 Winter Games** archetypes. Enter height + weight + age and receive a profile card with your top sports, historical medal rates, and a "Why you match" insight — all grounded in verified aggregate data.
 
 </td>
 <td width="50%">
@@ -200,7 +200,7 @@ The 3D globe supports touchless navigation via **MediaPipe Hands**. We map hand 
 
 ## 🧬 The Athlete Archetypes
 
-| # | Olympic Archetype | Description |
+| # | Summer Archetype | Description |
 |---|---|---|
 | 1 | **Powerhouse** | High mass, high strength — weightlifting, wrestling, throwing |
 | 2 | **Aerobic Engine** | Lean, efficient — distance running, cycling, triathlon |
@@ -301,7 +301,7 @@ pytest test_api.py -v
 
 | Step | Action | Expected Result |
 |---|---|---|
-| **1. Olympic Match** | Height 178cm, Weight 72kg, Age 25 → "Find My Archetype" | Named archetype card with medal rate, top sports, closest anonymized historical records |
+| **1. Archetype Match** | Height 178cm, Weight 72kg, Age 25 → "Find My Archetype Match" | Named archetype card with medal rate, top sports, verified biometric patterns |
 | **2. Paralympic Toggle** | Switch to Paralympic → re-run same biometrics | Distinct `para_*` archetype (e.g., "Para Endurance Engine") |
 | **3. AI Chat** | Ask: *"Which Team USA sports have the tallest athletes?"* | Gemini queries DB, returns heights by sport with historical trend |
 | **4. Globe Auto-Fly** | Ask about multiple different Olympic cities | Globe animates to each city automatically |
@@ -319,13 +319,13 @@ BASE=https://teamusa-oracle-api-789615763226.us-central1.run.app
 curl $BASE/health
 # → {"status":"ok"}
 
-# Olympic biometric match
+### Archetype biometric match
 curl -X POST $BASE/api/match \
   -H "Content-Type: application/json" \
   -d '{"height_cm": 178, "weight_kg": 72, "age": 25, "mode": "olympic"}'
 # → {"archetype_id": "aerobic_engine", "user_bmi": 22.7, ...}
 
-# Paralympic match
+### Dedicated Paralympic data match
 curl -X POST $BASE/api/match \
   -H "Content-Type: application/json" \
   -d '{"height_cm": 178, "weight_kg": 72, "age": 25, "mode": "paralympic"}'
@@ -348,7 +348,7 @@ Interactive Swagger UI: **[teamusa-oracle-api-789615763226.us-central1.run.app/d
 |---|---|---|
 | `/health` | `GET` | Health check → `{"status":"ok"}` |
 | `/api/stats` | `GET` | Dataset statistics (total records, athletes, years) |
-| `/api/archetypes` | `GET` | All 6 Olympic archetypes with biometric profiles |
+| `/api/archetypes` | `GET` | All 6 Summer archetypes with biometric profiles |
 | `/api/para-archetypes` | `GET` | All 6 Paralympic archetypes |
 | `/api/match` | `POST` | Biometric → archetype (Olympic or Paralympic) |
 | `/api/chat` | `POST` | Gemini agent — full JSON response |
@@ -417,7 +417,7 @@ All AI responses are governed by explicit system instructions:
 | **Conditional language only** | Responses use *"historically associated with"*, *"aggregate patterns suggest"* — never deterministic claims about individuals |
 | **No individual athlete profiles** | AI is prohibited from naming, profiling, or predicting outcomes for specific athletes |
 | **Aggregate data only** | All insights are drawn from population-level statistics, never individual records |
-| **Olympic / Paralympic separated** | The two models are independent; Paralympic analysis always carries the proxy-sports disclaimer |
+| **Olympic / Paralympic separated** | The two models are independent; Paralympic analysis always carries the dedicated data architecture disclaimer |
 | **Historical scope enforced** | AI is scoped to the 1896–2016 dataset; post-2016 questions are explicitly declined |
 
 ### ✅ Data-Scope Compliance Attestation

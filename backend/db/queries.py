@@ -103,9 +103,9 @@ def get_sport_breakdown(noc=None, year=None):
             cur.execute(query, params)
             return [clean_row(r) for r in cur.fetchall()]
 
-def get_top_nations(medal=None, sport=None, limit=5):
-    """Top nations by medal count."""
-    query = "SELECT noc, team_name, COUNT(*) as medal_count FROM v_results_full WHERE medal IS NOT NULL"
+def get_team_usa_stats(medal=None, sport=None, limit=5):
+    """Team USA aggregate stats by medal and sport. Strictly US-scoped."""
+    query = "SELECT noc, team_name, COUNT(*) as medal_count FROM v_results_full WHERE medal IS NOT NULL AND noc = 'USA'"
     params = []
     if medal:
         query += " AND medal = %s"
@@ -166,9 +166,9 @@ def get_games_summary(year=None, season=None):
             COUNT(DISTINCT name) as total_athletes,
             COUNT(DISTINCT noc) as total_nations,
             COUNT(DISTINCT event) as total_events,
-            city
+            'Los Angeles' as host_city
         FROM v_results_full 
-        WHERE year = %s
+        WHERE year = %s AND noc = 'USA'
     """
     params = [year]
     if season:

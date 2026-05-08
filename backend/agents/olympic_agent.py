@@ -8,56 +8,56 @@ load_dotenv()
 
 # ── Tool functions (called automatically by Gemini function calling) ──────────
 
-def get_medal_stats(noc: str = None, year: int = None, medal: str = None,
+def get_medal_stats(year: int = None, medal: str = None,
                     sport: str = None, year_from: int = None, year_to: int = None):
     """
-    Count actual medals won (Gold, Silver, Bronze only — never counts non-medal rows).
+    Count actual Team USA medals won (Gold, Silver, Bronze only).
     Use `year` for a single Games year (e.g. year=2012).
-    Use `year_from` + `year_to` for a range (e.g. year_from=2008, year_to=2012 means ALL Games from 2008 through 2012 inclusive).
+    Use `year_from` + `year_to` for a range (e.g. year_from=2008, year_to=2012).
     Use `medal` to filter by 'Gold', 'Silver', or 'Bronze'.
     Returns: { medal_count: int }
     """
-    return queries.get_medal_stats(noc, year, medal, sport, year_from, year_to)
+    return queries.get_medal_stats(noc="USA", year=year, medal=medal, sport=sport, year_from=year_from, year_to=year_to)
 
-def get_athlete_biometrics(noc: str = None, sport: str = None, sex: str = None):
+def get_athlete_biometrics(sport: str = None, sex: str = None):
     """
-    Average height and weight of athletes in a sport or nation.
+    Average height and weight of Team USA athletes in a sport.
     Use for questions like 'What is the average height of US swimmers?'
     Returns: { avg_height, avg_weight, count }
     """
-    return queries.get_athlete_biometrics(noc, sport, sex)
+    return queries.get_athlete_biometrics(noc="USA", sport=sport, sex=sex)
 
-def get_sport_breakdown(noc: str = None, year: int = None):
+def get_sport_breakdown(year: int = None):
     """
-    Top sports by medal count for a nation or year.
+    Top sports by medal count for Team USA in a specific year.
     Use for questions like 'In which sports did USA win most medals in 1996?'
     Returns: list of { sport, medal_count }
     """
-    return queries.get_sport_breakdown(noc, year)
+    return queries.get_sport_breakdown(noc="USA", year=year)
 
-def get_top_nations(medal: str = None, sport: str = None, limit: int = 5):
+def get_team_usa_stats(medal: str = None, sport: str = None, limit: int = 5):
     """
-    Top nations by medal count.
-    Use for questions like 'Which countries have the most gold medals in Athletics?'
+    Team USA aggregate statistics by medal and sport.
+    Use for questions like 'How many total gold medals does Team USA have in Swimming?'
     Returns: list of { noc, team_name, medal_count }
     """
-    return queries.get_top_nations(medal, sport, limit)
+    return queries.get_team_usa_stats(medal, sport, limit)
 
-def get_athlete_age_stats(noc: str = None, sport: str = None, year: int = None):
+def get_athlete_age_stats(sport: str = None, year: int = None):
     """
-    Min, max, and avg age of athletes.
+    Min, max, and avg age of Team USA athletes.
     Use for questions like 'Who is the oldest US Olympian?' or 'Average age of US gymnasts?'
     Returns: { min_age, max_age, avg_age, count }
     """
-    return queries.get_athlete_age_stats(noc, sport, year)
+    return queries.get_athlete_age_stats(noc="USA", sport=sport, year=year)
 
-def get_gender_breakdown(noc: str = None, year: int = None):
+def get_gender_breakdown(year: int = None):
     """
-    Count of Male vs Female athletes on a team.
+    Count of Male vs Female athletes on Team USA.
     Use for questions like 'How many women were on the US team in 2016?'
     Returns: list of { sex, count }
     """
-    return queries.get_gender_breakdown(noc, year)
+    return queries.get_gender_breakdown(noc="USA", year=year)
 
 def get_games_summary(year: int, season: str = None):
     """
@@ -75,12 +75,12 @@ def get_sport_history(sport: str):
     """
     return queries.get_sport_history(sport)
 
-def get_bmi_by_sport(noc: str = None, year: int = None):
+def get_bmi_by_sport(year: int = None):
     """
-    Average BMI grouped by sport — useful for body-type comparisons.
+    Average BMI of Team USA athletes grouped by sport.
     Returns: list of { sport, avg_bmi, count }
     """
-    return queries.get_bmi_by_sport(noc, year)
+    return queries.get_bmi_by_sport(noc="USA", year=year)
 
 def get_custom_sql_data(sql: str):
     """
@@ -155,7 +155,7 @@ TOOLS = [
     get_medal_stats,
     get_athlete_biometrics,
     get_sport_breakdown,
-    get_top_nations,
+    get_team_usa_stats,
     get_athlete_age_stats,
     get_gender_breakdown,
     get_games_summary,
@@ -188,10 +188,12 @@ _SYSTEM_PROMPT_INLINE_LEGACY = """You are the Team USA Gemini Analyst — a prec
 ═══ PRIVACY & ATTRIBUTION RULES (HIGHEST PRIORITY — NEVER OVERRIDE) ═══
 
 • NO INDIVIDUAL ATHLETES: Never name, profile, quote, or describe any specific living or deceased athlete. Do not reference personal biometrics, finish times, specific scores, or individual career histories.
-• AGGREGATE ONLY: Refer exclusively to aggregate Team USA records, era-level patterns, sport-level statistics, and anonymized historical trends.
+• NO FINISH TIMES: Never output race times, lap splits, scores, or placement distances. Refer only to medals (Gold/Silver/Bronze) or aggregate counts.
+• AGGREGATE ONLY: Refer exclusively to aggregate Team USA biometric patterns, era-level trends, sport-level statistics, and anonymized historical distributions.
+• STRICT US-SCOPE: All data and comparisons must be restricted to Team USA. Do not provide rankings or statistics for other nations.
 • NO LIKENESSES: Do not describe an athlete's appearance, style, or personal story.
-• DATA WINDOW: This dataset covers Olympic Games through the 2016 Rio Games. If asked about 2020, 2024, or 2028, clearly state: "Our records go up to the 2016 Rio Games — we don't have data for that period yet."
-• CONDITIONAL LANGUAGE: When connecting user biometrics to historical patterns, always use conditional phrasing: "athletes with similar builds have historically tended to…" not "you are exactly like…" or "legends share your build."
+• ARCHETYPE MATCH: Refer to the biometric results as an "Archetype Match" — a data metaphor based on aggregate historical patterns, not biological DNA.
+• PARALYMPIC DATA: Paralympic archetypes are derived from a dedicated historical biometric architecture mapping functional movement patterns.
 
 ═══ YOUR THINKING PROCESS ═══
 For EVERY question, follow this exact sequence:

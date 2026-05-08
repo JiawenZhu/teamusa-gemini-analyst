@@ -45,9 +45,9 @@ def _paginate(query: str, count_query: str, params: list, page: int, limit: int)
     "/athletes",
     response_model=PaginatedResponse,
     description=(
-        "Aggregate biometric statistics grouped by sport, NOC, and sex. "
+        "Aggregate biometric statistics grouped by sport and sex for Team USA. "
         "Returns avg height, avg weight, and athlete count. "
-        "No individual athlete names or IDs are returned."
+        "No individual athlete names or IDs are returned. Strictly US-scoped."
     ),
 )
 def get_public_athletes(
@@ -58,7 +58,7 @@ def get_public_athletes(
     limit: int = Query(50, ge=1, le=100),
 ):
     """Returns aggregate biometric stats — NO individual names or IDs."""
-    where = "WHERE height_cm IS NOT NULL AND weight_kg IS NOT NULL"
+    where = "WHERE height_cm IS NOT NULL AND weight_kg IS NOT NULL AND noc = 'USA'"
     params: list = []
 
     if noc:
@@ -109,8 +109,8 @@ def get_public_athletes(
     "/results",
     response_model=PaginatedResponse,
     description=(
-        "Aggregate medal summaries grouped by sport, NOC, year, and event. "
-        "Returns medal counts only — no individual athlete names or biometrics."
+        "Aggregate medal summaries grouped by sport, year, and event for Team USA. "
+        "Returns medal counts only — no individual athlete names or biometrics. Strictly US-scoped."
     ),
 )
 def get_public_results(
@@ -121,8 +121,8 @@ def get_public_results(
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=100),
 ):
-    """Returns aggregate medal counts — NO individual athlete rows."""
-    where = "WHERE 1=1"
+    """Returns aggregate medal counts for Team USA — NO individual athlete rows."""
+    where = "WHERE noc = 'USA'"
     params: list = []
 
     if noc:
@@ -173,7 +173,7 @@ def get_public_results(
     }
 
 
-@router.get("/games", description="All Olympic Games with aggregate athlete and nation counts. No individual data.")
+@router.get("/games", description="Team USA participation history with aggregate athlete counts. No individual data.")
 def get_public_games():
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -183,13 +183,14 @@ def get_public_games():
                        COUNT(DISTINCT noc) AS total_nations,
                        COUNT(CASE WHEN medal IS NOT NULL THEN 1 END) AS total_medals
                 FROM v_results_full
+                WHERE noc = 'USA'
                 GROUP BY year, season, city
                 ORDER BY year DESC
             """)
             return {"data": [dict(r) for r in cur.fetchall()]}
 
 
-@router.get("/nations", description="All NOCs with aggregate medal counts. No individual data.")
+@router.get("/team-usa", description="Team USA aggregate medal totals. No individual data.")
 def get_public_nations():
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -201,13 +202,13 @@ def get_public_nations():
                        SUM(CASE WHEN medal = 'Bronze' THEN 1 ELSE 0 END) AS bronze_medals,
                        COUNT(CASE WHEN medal IS NOT NULL THEN 1 END)      AS total_medals
                 FROM v_results_full
+                WHERE noc = 'USA'
                 GROUP BY noc, team_name
-                ORDER BY total_medals DESC
             """)
             return {"data": [dict(r) for r in cur.fetchall()]}
 
 
-@router.get("/sports", description="All sports with first/last appearance and event counts. No individual data.")
+@router.get("/sports", description="Team USA sports history with first/last appearance and event counts. No individual data.")
 def get_public_sports():
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -218,6 +219,7 @@ def get_public_sports():
                        COUNT(DISTINCT event) AS total_events,
                        COUNT(DISTINCT noc)   AS total_nations
                 FROM v_results_full
+                WHERE noc = 'USA'
                 GROUP BY sport
                 ORDER BY sport ASC
             """)

@@ -45,7 +45,7 @@ const teamUsaGames = [
     intAwayScore: '0 (4)',
     strVenue: 'Rose Bowl, Pasadena',
     strVideo: 'https://www.youtube.com/watch?v=E1H9tqjL0yI',
-    description: 'Brandi Chastain\'s winning penalty kick secures the World Cup for Team USA.',
+    description: 'A winning penalty kick secures the World Cup for Team USA in a tense shootout.',
   },
   {
     idEvent: '4',
@@ -60,7 +60,7 @@ const teamUsaGames = [
     intAwayScore: '2nd',
     strVenue: 'Beijing National Aquatics Center',
     strVideo: 'https://www.youtube.com/watch?v=sxy920Nd7yY',
-    description: 'Men\'s 4x100m Freestyle Relay - Jason Lezak\'s miraculous anchor leg.',
+    description: 'Men\'s 4x100m Freestyle Relay — Team USA\'s anchor leg produces a stunning comeback to claim gold.',
   },
   {
     idEvent: '5',

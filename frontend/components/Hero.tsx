@@ -18,7 +18,7 @@ export function Hero({ stats }: { stats: DatasetStats | null }) {
         <span style={{ color: "#C9A227" }}>Digital Mirror</span>
       </h1>
       <p style={{ fontSize: 18, color: "var(--text-muted)", maxWidth: 560, margin: "0 auto 40px", lineHeight: 1.65 }}>
-        120 years of Olympic history reflected through your body profile. Discover which athlete archetype could align with your build — spanning both Olympic and Paralympic sports.
+        120 years of Team USA sports history reflected through your body profile. Discover which athlete archetype could align with your build — spanning both summer and winter sports.
       </p>
 
       {/* STATS TICKER */}

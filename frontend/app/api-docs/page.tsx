@@ -17,8 +17,8 @@ export default function ApiDocsPage() {
       id: "games",
       method: "GET",
       path: "/api/v1/public/games",
-      title: "List Olympic Games",
-      description: "Retrieve a historical timeline of all Olympic Games (1896-2016), including host cities, total athletes, and participating nations.",
+      title: "List Games History",
+      description: "Retrieve a historical timeline of all Team USA Games appearances (1896-2016), including host cities, total athletes, and participating nations.",
       icon: <Map className="w-6 h-6" style={{ color: "#C9A227" }} />,
       code: `curl -X GET "https://api.teamusa.app/api/v1/public/games"`,
       response: `{
@@ -60,8 +60,8 @@ export default function ApiDocsPage() {
       id: "sports",
       method: "GET",
       path: "/api/v1/public/sports",
-      title: "List Olympic Sports",
-      description: "Retrieve a list of all historical and current Olympic sports, including their first and latest appearance years and total unique events.",
+      title: "List Sports",
+      description: "Retrieve a list of all historical and current Team USA sports, including their first and latest appearance years and total unique events.",
       icon: <Activity className="w-6 h-6" style={{ color: "#C9A227" }} />,
       code: `curl -X GET "https://api.teamusa.app/api/v1/public/sports"`,
       response: `{
@@ -109,7 +109,7 @@ export default function ApiDocsPage() {
       method: "GET",
       path: "/api/v1/public/sports/{sport}/history",
       title: "Sport History & Medal Trends",
-      description: "Get a chronological medal trend for a specific sport across all Olympic Games (1896–2016). Returns year-by-year aggregate medal counts per nation — no individual athlete data.",
+      description: "Get a chronological medal trend for a specific sport across all Games in our dataset (1896–2016). Returns year-by-year aggregate medal counts per nation — no individual athlete data.",
       icon: <Terminal className="w-6 h-6" style={{ color: "#C9A227" }} />,
       code: `curl -X GET "https://api.teamusa.app/api/v1/public/sports/Swimming/history"`,
       response: `{
@@ -175,7 +175,7 @@ export default function ApiDocsPage() {
           <span style={{ color: "#C9A227" }}>Open Data</span>
         </h1>
         <p style={{ fontSize: 18, color: "#94A3B8", maxWidth: 560, margin: "0 auto", lineHeight: 1.65 }}>
-          Programmatic access to 120 years of Olympic history. Designed for researchers, journalists, and sports fans to query 271,000+ historical records.
+          Programmatic access to 120 years of Team USA sports history. Designed for researchers, journalists, and sports fans to query 271,000+ historical records.
         </p>
       </section>
 

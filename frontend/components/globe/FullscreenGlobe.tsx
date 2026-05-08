@@ -861,7 +861,7 @@ export default function FullscreenGlobe({
 
           {/* Voice AI toggle */}
           <button
-            onClick={() => toggleLive('You are helping a user explore the Olympic World Map. Introduce yourself briefly and let them know they can ask you anything about the Olympics.')} 
+            onClick={() => toggleLive('You are helping a user explore Team history on an interactive world map. Introduce yourself briefly and let them know they can ask you anything about sports performance and history at each Games city.')} 
             title={voiceEnabled ? 'Stop Voice AI' : 'Talk to the AI Analyst'}
             style={{
               background: voiceEnabled ? 'rgba(239,68,68,0.2)' : 'rgba(99,102,241,0.15)',
@@ -1090,7 +1090,7 @@ export default function FullscreenGlobe({
                   <span style={{
                     opacity: 0.3, fontWeight: 400, fontSize: 14,
                     fontStyle: 'italic', color: '#94a3b8', lineHeight: 1.6,
-                  }}>Try asking: "Which city has hosted the most Olympics?"</span>
+                  }}>Try asking: "Which city has hosted Team USA the most times?"</span>
                 ) : (
                   <>
                     {liveMessages.map((msg, i) => {

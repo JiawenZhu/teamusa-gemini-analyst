@@ -10,11 +10,11 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "TeamUSA Gemini Analyst — Find Yourself in 120 Years of Team USA",
   description:
-    "A Gemini-powered AI agent that matches your body profile to 120 years of Olympic and Paralympic Team USA athletes. Powered by Google Cloud.",
-  keywords: ["Team USA", "Olympics", "Paralympics", "Gemini AI", "Google Cloud", "LA28", "athlete"],
+    "A Gemini-powered AI agent that matches your body profile to 120 years of Team USA athlete history. Powered by Google Cloud.",
+  keywords: ["Team USA", "LA28 Games", "Paralympics", "Gemini AI", "Google Cloud", "LA28", "athlete", "sports analytics"],
   openGraph: {
     title: "TeamUSA Gemini Analyst",
-    description: "Explore 120 years of Team USA Olympic and Paralympic history. Find which historical athlete archetype aligns with your biometric profile.",
+    description: "Explore 120 years of Team USA sports history. Find which historical athlete archetype aligns with your biometric profile.",
     type: "website",
   },
 };

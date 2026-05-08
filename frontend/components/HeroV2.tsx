@@ -66,7 +66,7 @@ export function HeroV2({ stats }: { stats: DatasetStats | null }) {
 
         {/* Description Paragraph */}
         <p className="absolute left-6 md:left-12 top-[58%] max-w-[220px] text-[14px] leading-relaxed text-white/80 font-medium">
-          120 years of Olympic history reflected through your body profile.
+          120 years of Team USA sports history reflected through your body profile.
         </p>
 
         {/* Stat Block: Top Right */}

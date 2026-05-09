@@ -28,6 +28,8 @@
 **Team USA Digital Mirror** connects *your* body to 120 years of games history. Our K-means ML model maps your height, weight, and age onto aggregate historical biometric patterns — then unlocks a full AI analyst, interactive 3D globe, and voice assistant to let you explore every dimension of Team USA's story.
 
 > **Data:** 271,116 global records (1896–2016), filtered to aggregate biometric patterns from 8,108 Team USA entries. Built on the public [120 Years of Olympic History](https://www.kaggle.com/datasets/heesoo37/120-years-of-olympic-history-athletes-and-results) Kaggle dataset.
+> 
+> 📑 **[Detailed Team USA Olympic Dataset (120 Years)](https://docs.google.com/document/d/1rcWSYEYkhwqbTmF9nzkuuJrZdj7hcvxk7DntoDmkDTQ/edit?usp=sharing)**
 
 ---
 
@@ -47,6 +49,8 @@
 ╚══════════════════════════════════════════════════════════════════════════╝
 ```
 
+📑 **[The Three Pillars of Digital Mirror - Deep Dive](https://docs.google.com/document/d/1-gVTZlC2k5TUf30cafrFZFSTuLgIv0fyDAfwW_TbrUY/edit?usp=sharing)**
+
 ---
 
 ## 🌟 Feature Showcase
@@ -63,6 +67,8 @@ K-means clustering across **6 Summer Games** and **6 Winter Games** archetypes. 
 
 ### 🌍 Live 3D Interactive Globe
 NASA-textured Earth built with **Three.js + react-three-fiber**. Features atmosphere glow, starfield, sonar city markers, and animated flight arcs. When Gemini mentions an Olympic host city, the globe **automatically flies there**.
+
+📑 **[High-performance 3D Visualization (Globe) Details](https://docs.google.com/document/d/1bPVj5_i_LZTneDA7fmcdmOF1Skw8VSjv0lVeLnVA25k/edit?usp=sharing)**
 
 </td>
 </tr>
@@ -113,6 +119,8 @@ Chat responses stream progressively via **Server-Sent Events** — text appears 
 ---
 
 ## 🏗️ Architecture
+
+📑 **[Technical Deep Dive: Firebase & Cloud SQL Infrastructure](https://docs.google.com/document/d/1tu3Hf7G-DLMRN9XsBc6PnSxU5HxIFSaKt5gRz_X239I/edit?usp=sharing)**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -343,6 +351,8 @@ Interactive Swagger UI: **[teamusa-oracle-api-789615763226.us-central1.run.app/d
 ---
 
 ## 📡 API Reference
+
+📑 **[API Endpoint Detailed Specification](https://docs.google.com/document/d/1dUf1DKY71DmqVRgwWBqBoxalW0AtLzfqVtsIlg5UDlw/edit?usp=sharing)**
 
 | Endpoint | Method | Description |
 |---|---|---|

@@ -22,7 +22,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
-from data.public_data import load_data, get_dataset_stats, get_all_archetypes, match_biometrics, get_timeline_data, match_para_biometrics, get_para_archetypes
+from data.public_data import load_data, get_dataset_stats, get_all_archetypes, match_biometrics, get_timeline_data, match_para_biometrics, get_para_archetypes, OLYMPIC_CITY_COORDS
 from db import api_routes, public_api  # public_api: aggregate-only endpoints, no individual athlete data
 from agents.olympic_agent import ask_gemini
 from agents.gemini_tts import synthesize_text_to_wav_b64, synthesize_sentence_to_wav_b64
@@ -232,40 +232,7 @@ def timeline():
 
 # ── Olympic host cities with medal counts ─────────────────────────────────────
 # Pre-geocoded coordinates for all Olympic host cities (avoids Nominatim latency)
-_OLYMPIC_CITY_COORDS: dict[str, dict] = {
-    "Athens":          {"lat": 37.9838,  "lng": 23.7275},
-    "Paris":           {"lat": 48.8566,  "lng": 2.3522},
-    "St. Louis":       {"lat": 38.6270,  "lng": -90.1994},
-    "London":          {"lat": 51.5074,  "lng": -0.1278},
-    "Stockholm":       {"lat": 59.3293,  "lng": 18.0686},
-    "Antwerp":         {"lat": 51.2194,  "lng": 4.4025},
-    "Amsterdam":       {"lat": 52.3676,  "lng": 4.9041},
-    "Los Angeles":     {"lat": 34.0522,  "lng": -118.2437},
-    "Berlin":          {"lat": 52.5200,  "lng": 13.4050},
-    "Helsinki":        {"lat": 60.1699,  "lng": 24.9384},
-    "Melbourne":       {"lat": -37.8136, "lng": 144.9631},
-    "Rome":            {"lat": 41.9028,  "lng": 12.4964},
-    "Tokyo":           {"lat": 35.6762,  "lng": 139.6503},
-    "Mexico City":     {"lat": 19.4326,  "lng": -99.1332},
-    "Munich":          {"lat": 48.1351,  "lng": 11.5820},
-    "Montreal":        {"lat": 45.5017,  "lng": -73.5673},
-    "Moscow":          {"lat": 55.7558,  "lng": 37.6173},
-    "Seoul":           {"lat": 37.5665,  "lng": 126.9780},
-    "Barcelona":       {"lat": 41.3851,  "lng": 2.1734},
-    "Atlanta":         {"lat": 33.7490,  "lng": -84.3880},
-    "Sydney":          {"lat": -33.8688, "lng": 151.2093},
-    "Beijing":         {"lat": 39.9042,  "lng": 116.4074},
-    "Rio de Janeiro":  {"lat": -22.9068, "lng": -43.1729},
-    "Sarajevo":        {"lat": 43.8563,  "lng": 18.4131},
-    "Calgary":         {"lat": 51.0447,  "lng": -114.0719},
-    "Albertville":     {"lat": 45.6756,  "lng": 6.3921},
-    "Lillehammer":     {"lat": 61.1151,  "lng": 10.4662},
-    "Nagano":          {"lat": 36.6513,  "lng": 138.1810},
-    "Salt Lake City":  {"lat": 40.7608,  "lng": -111.8910},
-    "Turin":           {"lat": 45.0703,  "lng": 7.6869},
-    "Vancouver":       {"lat": 49.2827,  "lng": -123.1207},
-    "Sochi":           {"lat": 43.5855,  "lng": 39.7231},
-}
+# Moved to public_data.py
 
 @app.get("/api/olympic-cities")
 def olympic_cities():
@@ -287,7 +254,7 @@ def olympic_cities():
     seen: dict[str, dict] = {}
     for row in rows:
         city = row.get("city", "")
-        coords = _OLYMPIC_CITY_COORDS.get(city)
+        coords = OLYMPIC_CITY_COORDS.get(city)
         if not coords:
             continue
         if city not in seen:
@@ -521,21 +488,8 @@ def _progressive_groups(sentences: list[str]) -> list[list[str]]:
 @limiter.limit("100/day")
 async def chat_stream(request: Request, req: ChatRequest):
     """
-    Progressive SSE streaming with inline Gemini TTS audio.
-
-    Phase 1 — Agent: run ask_gemini() with full tool-calling (grounded).
-    Phase 2 — Stream: split response into progressive groups:
-        Group 0: 1 sentence  → synthesize immediately → emit {text, audio}
-        Group 1: 2 sentences → synthesize while group 0 audio plays
-        Group 2+:3 sentences → background synthesis
-
-    Each SSE event:
-        data: {"text": "<sentence(s)>", "audio": "<base64 WAV|null>",
-               "index": 0, "done": false}
-    Final event:
-        data: {"text": "", "audio": null, "index": -1, "done": true}
-
-    Frontend decodes WAV via AudioContext for gapless playback.
+    True SSE streaming using the Gemini generator.
+    Delivers tokens almost immediately as they are synthesized.
     """
     from data.public_data import get_all_archetypes
     archs = {a["id"]: a for a in get_all_archetypes()}
@@ -557,29 +511,61 @@ Do NOT name or profile any specific athlete. Do NOT imply this user's performanc
         if req.user_age: context += f"{req.user_age} years old "
         context += "- you can reference these respectfully and motivationally if relevant.\n"
 
-    # Phase 1: agent runs (tools complete, grounded answer ready)
-    full_response, map_trigger = await asyncio.to_thread(ask_gemini, req.message, context, req.history)
-
-    # Phase 2: progressive chunked SSE
     async def generate():
-        # Feature B: if Gemini triggered a map view, emit it first as a special event
-        if map_trigger:
-            yield f"data: {json.dumps({'mapTrigger': map_trigger, 'text': '', 'audio': None, 'index': -1, 'done': False})}\n\n"
+        # Feature B: call ask_gemini in streaming mode
+        # Since ask_gemini is a blocking generator (using client.send_message_stream),
+        # we run it in a thread and use an async queue to bridge to SSE.
+        import queue
+        q = queue.Queue()
 
-        sentences = _split_sentences(full_response)
-        groups    = _progressive_groups(sentences)
+        def run_agent():
+            try:
+                gen = ask_gemini(req.message, context, req.history, stream=True)
+                for chunk in gen:
+                    q.put(chunk)
+                q.put(None) # Sentinel
+            except Exception as e:
+                q.put(f"Error in agent thread: {str(e)}")
+                q.put(None)
 
-        for i, group in enumerate(groups):
-            group_text = " ".join(group)
-            audio_b64 = None
+        # Start agent thread
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(None, run_agent)
 
-            payload = json.dumps({
-                "text":  group_text,
-                "audio": audio_b64,
-                "index": i,
-                "done":  False,
-            })
-            yield f"data: {payload}\n\n"
+        index = 0
+        while True:
+            # Check for data in queue without blocking the event loop
+            try:
+                chunk = q.get_nowait()
+                if chunk is None: break
+
+                # Handle special MAP_TRIGGER marker from our generator
+                if chunk.startswith("__MAP_TRIGGER__:"):
+                    try:
+                        trigger_data = json.loads(chunk[len("__MAP_TRIGGER__:"):])
+                        payload = json.dumps({
+                            "mapTrigger": trigger_data,
+                            "text": "",
+                            "audio": None,
+                            "index": -1,
+                            "done": False
+                        })
+                        yield f"data: {payload}\n\n"
+                        continue
+                    except:
+                        pass
+
+                # Normal text chunk
+                payload = json.dumps({
+                    "text":  chunk,
+                    "audio": None,
+                    "index": index,
+                    "done":  False,
+                })
+                yield f"data: {payload}\n\n"
+                index += 1
+            except queue.Empty:
+                await asyncio.sleep(0.01)
 
         yield f"data: {json.dumps({'text': '', 'audio': None, 'index': -1, 'done': True})}\n\n"
 

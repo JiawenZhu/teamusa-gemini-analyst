@@ -20,12 +20,24 @@ export interface DatasetStats {
   data_source: string;
   archetype_counts: Record<string, number>;
 }
+export interface CentroidPoint {
+  archetype_id: string;
+  height_cm: number;
+  weight_kg: number;
+  bmi: number;
+  is_user_cluster: boolean;
+}
+
 export interface MatchResult {
   archetype_id: string;
   archetype: ArchetypeProfile;
   user_bmi: number;
   closest_athletes: { Sport: string; Year: number; Height: number; Weight: number; Sex: string; Medal: string }[];
   percentile_note: string;
+  // New fields from Step 1:
+  height_percentile?: number;   // 0.0 – 1.0
+  weight_percentile?: number;   // 0.0 – 1.0
+  all_centroids?: CentroidPoint[];
 }
 export interface TimelinePoint {
   Year: number; Height: number; Weight: number; BMI: number;

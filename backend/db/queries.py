@@ -191,7 +191,7 @@ def get_sport_history(sport):
             COUNT(DISTINCT event) as total_events,
             COUNT(medal) as total_medals
         FROM v_results_full 
-        WHERE sport = %s
+        WHERE sport = %s AND noc = 'USA'
     """
     with get_db_connection() as conn:
         with conn.cursor() as cur:
@@ -249,22 +249,30 @@ def _rewrite_having_aliases(sql: str) -> str:
     if not alias_names:
         return sql
 
-    # Extract the HAVING clause text
-    having_start = having_match.start()
-    having_clause = sql[having_start:]  # everything from HAVING onward
-
-    # Check if HAVING references any alias
-    having_lower = having_clause.lower()
-    uses_alias = any(_re.search(r'\b' + _re.escape(alias) + r'\b', having_lower)
+    # Extract the actual HAVING clause (until ORDER BY, LIMIT, etc.)
+    having_text = sql[having_match.start():]
+    boundary_match = _re.search(r'\b(ORDER\s+BY|LIMIT)\b', having_text, _re.IGNORECASE)
+    
+    if boundary_match:
+        actual_having = having_text[:boundary_match.start()]
+        trailing_text = having_text[boundary_match.start():]
+    else:
+        actual_having = having_text
+        trailing_text = ""
+        
+    # Check if the actual HAVING part references any alias
+    actual_having_lower = actual_having.lower()
+    uses_alias = any(_re.search(r'\b' + _re.escape(alias) + r'\b', actual_having_lower)
                      for alias in alias_names)
+    
     if not uses_alias:
         return sql
 
     # Rewrite: wrap in subquery, convert HAVING → WHERE on outer query
-    inner_sql = sql[:having_start].rstrip().rstrip(',')
-    # Replace HAVING with WHERE on the outside
-    outer_condition = _re.sub(r'^\s*HAVING\s+', 'WHERE ', having_clause, flags=_re.IGNORECASE)
-    rewritten = f"SELECT * FROM ({inner_sql}) AS _sub {outer_condition}"
+    inner_sql = sql[:having_match.start()].rstrip().rstrip(',')
+    outer_where = _re.sub(r'^\s*HAVING\s+', 'WHERE ', actual_having, flags=_re.IGNORECASE)
+    
+    rewritten = f"SELECT * FROM ({inner_sql}) AS _sub {outer_where} {trailing_text}"
     print(f"⚙️  SQL rewritten (HAVING alias fix): {rewritten[:160]}...")
     return rewritten
 
@@ -299,6 +307,21 @@ def execute_dynamic_query(sql: str, params=None):
     if hits:
         print(f"❌ Rejected: Write keyword detected: {hits}")
         return {"error": f"Write operation not permitted: {', '.join(hits)}"}
+
+    # 3. Block non-USA NOCs and other teams (Data Sovereignty)
+    # Check for NOC codes (3 letters in single quotes) that are not 'USA'
+    noc_hits = _re.findall(r"NOC\s*=\s*'([^']+)'", sql, _re.IGNORECASE)
+    for noc in noc_hits:
+        if noc.upper() != 'USA':
+            print(f"❌ Rejected: Non-USA NOC detected: {noc}")
+            return {"error": f"I can only provide data for Team USA (NOC='USA'). You requested data for {noc}."}
+    
+    # Check for team names that aren't 'United States'
+    team_hits = _re.findall(r"TEAM_NAME\s*=\s*'([^']+)'", sql, _re.IGNORECASE)
+    for team in team_hits:
+        if 'UNITED STATES' not in team.upper() and 'USA' not in team.upper():
+            print(f"❌ Rejected: Non-USA Team detected: {team}")
+            return {"error": f"I can only provide data for Team USA. You requested data for {team}."}
 
     with get_db_connection() as conn:
         with conn.cursor() as cur:

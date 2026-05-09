@@ -1,6 +1,7 @@
 "use client";
-import { motion } from "framer-motion";
-import { Sparkles, Medal, ChevronRight, User, Trophy, Ruler, Weight } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, Medal, ChevronRight, User, Trophy, Ruler, Weight, Zap } from "lucide-react";
 
 // ─── Flag map ─────────────────────────────────────────────────────────────────
 const FLAG_MAP: Record<string, string> = {
@@ -78,49 +79,149 @@ function SectionHeading({ content, color }: { content: string; color: string }) 
   );
 }
 
-// ─── Modern numbered sport/item card ────────────────────────────────────────
-// Handles Gemini output like: "1. **Swimming:** 19 medals (description). 2. **Athletics:** …"
-// Each numbered item gets a clean card row — no raw ** visible.
+// ─── Generate follow-up questions from a card label + detail ─────────────────
+function makeFollowUps(label: string, detail: string): string[] {
+  const l = label.trim();
+  const d = detail.toLowerCase();
+  const medalMatch = d.match(/([\d,]+)/);
+  const count = medalMatch ? medalMatch[1] : "";
+
+  // Sport-specific drill-downs
+  const base = [
+    `What are the biometric traits of Team USA ${l} athletes compared to other sports?`,
+    `Which years did Team USA dominate ${l}, and what drove that success?`,
+    `How does my archetype compare to the average ${l} athlete's body type?`,
+  ];
+
+  // Swap in count-aware question if we detected a number
+  if (count) {
+    base[1] = `How were those ${count} ${l} results distributed across different Olympic Games?`;
+  }
+
+  return base;
+}
+
+// ─── Modern numbered sport/item card (clickable) ──────────────────────────────
 function NumberedSportCard({
-  num, label, detail, color
-}: { num: string; label: string; detail: string; color: string }) {
+  num, label, detail, color, onQuickAsk,
+}: { num: string; label: string; detail: string; color: string; onQuickAsk?: (q: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const questions = makeFollowUps(label, detail);
+  const isClickable = !!onQuickAsk;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, x: -8 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: parseInt(num) * 0.06 }}
-      style={{
-        display: "flex", alignItems: "flex-start", gap: 12,
-        padding: "12px 14px",
-        background: "#ffffff",
-        border: "1px solid #f1f5f9",
-        borderLeft: `3px solid ${color}`,
-        borderRadius: "0 10px 10px 0",
-        boxShadow: "0 1px 6px rgba(0,0,0,0.05)",
-      }}
-    >
-      {/* Rank badge */}
-      <div style={{
-        width: 26, height: 26, borderRadius: "50%",
-        background: color,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0, marginTop: 1,
-        boxShadow: `0 2px 8px ${color}44`,
-      }}>
-        <span style={{ fontSize: 11, fontWeight: 900, color: "#fff" }}>{num}</span>
-      </div>
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 2 }}>
-          {label}
+    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      <motion.div
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: parseInt(num) * 0.06 }}
+        onClick={() => isClickable && setOpen(o => !o)}
+        style={{
+          display: "flex", alignItems: "flex-start", gap: 12,
+          padding: "12px 14px",
+          background: open ? `${color}08` : "#ffffff",
+          borderTop: `1px solid ${open ? color + "40" : "#f1f5f9"}`,
+          borderRight: `1px solid ${open ? color + "40" : "#f1f5f9"}`,
+          borderBottom: `1px solid ${open ? color + "40" : "#f1f5f9"}`,
+          borderLeft: `3px solid ${color}`,
+          borderRadius: open ? "0 10px 0 0" : "0 10px 10px 0",
+          boxShadow: open ? `0 2px 12px ${color}20` : "0 1px 6px rgba(0,0,0,0.05)",
+          cursor: isClickable ? "pointer" : "default",
+          transition: "all 0.2s ease",
+          userSelect: "none",
+        }}
+        whileHover={isClickable ? { x: 2 } : {}}
+      >
+        {/* Rank badge */}
+        <div style={{
+          width: 26, height: 26, borderRadius: "50%",
+          background: color,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, marginTop: 1,
+          boxShadow: `0 2px 8px ${color}44`,
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 900, color: "#fff" }}>{num}</span>
         </div>
-        {detail && (
-          <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
-            {parseInline(detail, color)}
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#0f172a", marginBottom: 2 }}>
+            {label}
+          </div>
+          {detail && (
+            <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
+              {parseInline(detail, color)}
+            </div>
+          )}
+        </div>
+        {/* Expand hint */}
+        {isClickable && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginTop: 2,
+            color: open ? color : "#94a3b8",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase",
+            transition: "color 0.2s",
+          }}>
+            <Zap size={10} />
+            {open ? "close" : "ask"}
           </div>
         )}
-      </div>
-    </motion.div>
+      </motion.div>
+
+      {/* ── Follow-up question chips ── */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            style={{ overflow: "hidden" }}
+          >
+            <div style={{
+              background: `${color}06`,
+              border: `1px solid ${color}25`,
+              borderTop: "none",
+              borderRadius: "0 0 10px 10px",
+              padding: "10px 12px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+            }}>
+              <p style={{ margin: 0, fontSize: 10, fontWeight: 800, color, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>
+                ⚡ Follow-up questions
+              </p>
+              {questions.map((q, qi) => (
+                <motion.button
+                  key={q}
+                  initial={{ opacity: 0, x: -6 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: qi * 0.06 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setOpen(false);
+                    onQuickAsk?.(q);
+                  }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    background: "#ffffff", border: `1px solid ${color}30`,
+                    borderRadius: 10, padding: "8px 12px",
+                    cursor: "pointer", textAlign: "left",
+                    fontSize: 12.5, fontWeight: 600, color: "#1e293b",
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
+                    transition: "all 0.15s",
+                  }}
+                  whileHover={{ backgroundColor: `${color}10`, x: 2 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span style={{ color, flexShrink: 0, fontSize: 14 }}>›</span>
+                  {q}
+                </motion.button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -281,7 +382,9 @@ function renderTable(block: string, color: string): React.ReactNode {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export function FormattedBotMessage({ text, color }: { text: string; color: string }) {
+export function FormattedBotMessage({
+  text, color, onQuickAsk,
+}: { text: string; color: string; onQuickAsk?: (q: string) => void }) {
   // ── Step 1: split inline numbered list runs onto their own lines ──
   const step1 = splitInlineNumberedList(text);
 
@@ -332,23 +435,14 @@ export function FormattedBotMessage({ text, color }: { text: string; color: stri
           // Try modern sport card
           const parsed = parseNumberedItem(trimmed);
           if (parsed) {
-            return <NumberedSportCard key={i} {...parsed} color={color} />;
+            return <NumberedSportCard key={i} {...parsed} color={color} onQuickAsk={onQuickAsk} />;
           }
-          // Fallback: plain numbered paragraph
+          // Fallback: plain numbered paragraph (also clickable)
           const [, num, rest] = trimmed.match(/^(\d+)\.\s+(.*)$/s) ?? [];
           if (num && rest) {
+            const label = rest.replace(/\*\*/g, "").split(/[:–-]/)[0].trim();
             return (
-              <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: "50%", background: color,
-                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2,
-                }}>
-                  <span style={{ fontSize: 10, fontWeight: 900, color: "#fff" }}>{num}</span>
-                </div>
-                <p style={{ margin: 0, fontSize: 14, color: "#1e293b", lineHeight: 1.7, flex: 1 }}>
-                  {parseInline(rest, color)}
-                </p>
-              </div>
+              <NumberedSportCard key={i} num={num} label={label} detail={rest.replace(/^[^:–-]+[:–-]\s*/, "").replace(/\*\*/g, "").trim()} color={color} onQuickAsk={onQuickAsk} />
             );
           }
         }

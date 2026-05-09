@@ -1,5 +1,5 @@
 "use client";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { Check, Share2, Download, Trophy, Target, Award, Star, Zap, History, Info } from "lucide-react";
 import type { ArchetypeProfile, MatchResult } from "@/lib/api";
 import { Bar } from "./Bar";
@@ -121,7 +121,10 @@ export function MatchResultPanel({
             className="flex flex-wrap gap-6 justify-center mt-16 relative z-10"
           >
             <button 
-              onClick={shareDna} 
+              onClick={(event) => {
+                event.stopPropagation();
+                shareDna();
+              }} 
               className="group bg-white text-slate-900 px-10 py-5 rounded-[24px] font-black text-sm flex items-center gap-4 shadow-[0_20px_40px_rgba(0,0,0,0.2)] hover:shadow-[0_30px_60px_rgba(0,0,0,0.3)] hover:-translate-y-1 transition-all active:scale-95"
             >
               {copied ? <Check className="w-6 h-6 text-green-500" /> : <Share2 className="w-6 h-6 group-hover:rotate-12 transition-transform" />}
@@ -131,10 +134,12 @@ export function MatchResultPanel({
             <a 
               href={`/api/og?id=${result.archetype.id}&arch=${result.archetype.label}&color=${result.archetype.color.replace('#','%23')}&bmi=${result.user_bmi.toFixed(1)}&sports=${result.archetype.olympic_sports.slice(0, 3).join(", ")}&matches=847`}
               download={`TeamUSA-Archetype-${result.archetype.label.replace(/\s+/g, '-')}.png`}
+              onClick={(event) => event.stopPropagation()}
               className="bg-white/10 backdrop-blur-xl border border-white/20 text-white px-10 py-5 rounded-[24px] font-black text-sm flex items-center gap-4 hover:bg-white/20 transition-all shadow-xl active:scale-95"
             >
               <Download className="w-6 h-6" /> SAVE AS IMAGE
             </a>
+
           </motion.div>
         )}
 

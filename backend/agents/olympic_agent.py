@@ -3,6 +3,7 @@ from google import genai
 from google.genai import types
 from db import queries
 from dotenv import load_dotenv
+from data.public_data import OLYMPIC_CITY_COORDS
 
 load_dotenv()
 
@@ -131,13 +132,30 @@ def trigger_map_view(city_name: str):
     Returns: { city, lat, lng, triggered: true }
     """
     global _last_map_trigger
+    
+    # 1. Fast check: All Olympic host cities are already in our local coordinate DB
+    # This avoids a 1.5s Nominatim HTTP call per city mention.
+    coords = OLYMPIC_CITY_COORDS.get(city_name)
+    if not coords:
+        # Check case-insensitive
+        for name, c in OLYMPIC_CITY_COORDS.items():
+            if name.lower() == city_name.lower():
+                coords = c
+                break
+
+    if coords:
+        result = {"city": city_name, "lat": coords["lat"], "lng": coords["lng"], "triggered": True}
+        _last_map_trigger = result
+        return result
+
+    # 2. Fallback to Nominatim only for non-host cities if absolutely necessary
     import httpx
     try:
         r = httpx.get(
             "https://nominatim.openstreetmap.org/search",
             params={"q": city_name, "format": "json", "limit": 1},
             headers={"User-Agent": "TeamUSA-Oracle/1.0"},
-            timeout=5
+            timeout=3
         )
         results = r.json()
         if results:
@@ -146,6 +164,7 @@ def trigger_map_view(city_name: str):
             return result
     except Exception:
         pass
+
     _last_map_trigger = None
     return {"city": city_name, "triggered": False}
 
@@ -317,7 +336,12 @@ USA filter: noc = 'USA'
 """
 
 
-def ask_gemini(question: str, context: str = "", history: list = None):
+def ask_gemini(question: str, context: str = "", history: list = None, stream=False):
+    """
+    Queries Gemini for a response, with automatic tool calling for SQL/Map.
+    If stream=True, returns a generator that yields text chunks.
+    Otherwise, returns (full_text, map_trigger).
+    """
     client = genai.Client(vertexai=True, project="teamusa-8b1ba", location="global")
 
     final_system_prompt = SYSTEM_PROMPT
@@ -327,17 +351,18 @@ def ask_gemini(question: str, context: str = "", history: list = None):
     contents = []
     if history:
         for msg in history:
-            role = "user" if msg.role == "user" else "model"
-            contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg.text)]))
+            # handle both pydantic objects and dicts
+            h_role = getattr(msg, 'role', None) or (msg.get('role') if isinstance(msg, dict) else 'user')
+            h_text = getattr(msg, 'text', None) or (msg.get('text') if isinstance(msg, dict) else '')
+            role = "user" if h_role == "user" else "model"
+            contents.append(types.Content(role=role, parts=[types.Part.from_text(text=h_text)]))
     contents.append(types.Content(role="user", parts=[types.Part.from_text(text=question)]))
 
-    # Only keep the last 6 messages (3 exchanges) to avoid stale thought signatures
-    # that accumulate in longer conversations and trigger 400 INVALID_ARGUMENT
     safe_history = contents[:-1][-6:] if len(contents) > 1 else None
 
-    def _call_gemini(history_to_use):
+    def _call_gemini(history_to_use, stream_mode=False):
         chat = client.chats.create(
-            model="gemini-3-flash-preview",
+            model="gemini-3.1-flash-lite-preview",
             history=history_to_use,
             config=types.GenerateContentConfig(
                 system_instruction=final_system_prompt,
@@ -348,25 +373,17 @@ def ask_gemini(question: str, context: str = "", history: list = None):
                 )
             )
         )
+        if stream_mode:
+            return chat.send_message_stream(question)
         return chat.send_message(question)
 
+    if stream:
+        return _ask_gemini_streaming(question, safe_history, _call_gemini)
+
     try:
-        print(f"🤖 Asking Gemini: {question}")
-        try:
-            response = _call_gemini(safe_history)
-        except Exception as first_err:
-            err_str = str(first_err)
-            # "Corrupted thought signature" or similar history-related 400 errors
-            if "400" in err_str or "thought" in err_str.lower() or "signature" in err_str.lower() or "INVALID_ARGUMENT" in err_str:
-                print(f"⚠️ History caused {err_str[:80]} — retrying without history")
-                response = _call_gemini(None)
-            else:
-                raise
-
+        response = _call_gemini(safe_history)
         response_text = response.text if response.text else "The analyst could not find a clear answer."
-        print(f"✅ Gemini Response: {response_text[:120]}...")
-
-        # Feature B: read the map trigger stored by trigger_map_view during automatic function calling
+        
         map_trigger = None
         global _last_map_trigger
         if _last_map_trigger and _last_map_trigger.get("triggered"):
@@ -375,12 +392,36 @@ def ask_gemini(question: str, context: str = "", history: list = None):
                 "lat": _last_map_trigger["lat"],
                 "lng": _last_map_trigger["lng"],
             }
-        _last_map_trigger = None  # reset for next call
-        print(f"🌍 Map trigger: {map_trigger}")
-
+        _last_map_trigger = None
         return response_text, map_trigger
     except Exception as e:
         return f"Error communicating with Gemini: {str(e)}", None
+
+def _ask_gemini_streaming(question, history, call_fn):
+    """Internal generator for streaming chunks."""
+    try:
+        response_stream = call_fn(history, stream_mode=True)
+        for chunk in response_stream:
+            if chunk.text:
+                yield chunk.text
+        
+        # After stream ends, check for map triggers
+        map_trigger = None
+        global _last_map_trigger
+        if _last_map_trigger and _last_map_trigger.get("triggered"):
+            map_trigger = {
+                "city": _last_map_trigger["city"],
+                "lat": _last_map_trigger["lat"],
+                "lng": _last_map_trigger["lng"],
+            }
+        _last_map_trigger = None
+        
+        if map_trigger:
+            # Yield special marker for map trigger if one was called during AFC
+            yield f"__MAP_TRIGGER__:{json.dumps(map_trigger)}"
+            
+    except Exception as e:
+        yield f"Error in stream: {str(e)}"
 
 import asyncio
 import json
@@ -403,7 +444,7 @@ Always use conditional phrasing.
 """
         live_system_instruction += context
 
-    # v1beta1 is required for gemini-3.1-flash-live-preview
+    # v1beta1 is required for gemini-live-2.5-flash-native-audio
     client = genai.Client(
         vertexai=True, project="teamusa-8b1ba", location="us-central1",
         http_options={"api_version": "v1beta1"},
@@ -465,6 +506,16 @@ Always use conditional phrasing.
                                     text = payload.get("text", "").strip()
                                     if text:
                                         print(f"[Client text]: {text}")
+                                        await text_input_queue.put(text)
+                                elif msg_type == "context_update":
+                                    context = payload.get("context", {})
+                                    if context:
+                                        text = (
+                                            "Live UI context update for the next user question. "
+                                            "The user selected this anatomical focus in the 3D body mirror. "
+                                            f"Use it as context if relevant, but do not provide medical advice: {json.dumps(context)}"
+                                        )
+                                        print(f"[Client context]: {text}")
                                         await text_input_queue.put(text)
                             except json.JSONDecodeError:
                                 pass

@@ -668,8 +668,8 @@ interface FullscreenGlobeProps {
   onGoToChat?: (city: string) => void;
   pauseGesture?: boolean;
   voiceAssistant?: {
-    voiceEnabled: boolean;
     micState: string;
+    permissionError?: string | null;
     toggleLive: (prompt?: string) => void;
   };
 }
@@ -690,8 +690,9 @@ export default function FullscreenGlobe({
   // interimUserText: real-time streaming preview of what the user is currently saying
   const [interimUserText, setInterimUserText] = useState<string>('');
 
-  const voiceEnabled = voiceAssistant?.voiceEnabled ?? false;
   const micState = voiceAssistant?.micState ?? 'idle';
+  const permissionError = voiceAssistant?.permissionError ?? null;
+  const voiceEnabled = micState !== 'idle';
   const toggleLive = voiceAssistant?.toggleLive ?? (() => {});
 
   // Listen for live text from voice
@@ -759,11 +760,11 @@ export default function FullscreenGlobe({
 
   // Clear chat history and interim text when a new voice session starts
   useEffect(() => {
-    if (voiceEnabled) {
+    if (micState !== 'idle') {
       setLiveMessages([]);
       setInterimUserText('');
     }
-  }, [voiceEnabled]);
+  }, [micState]);
 
   // Shared refs — written by HandGestureOverlay, read by GestureApplier every frame
   const gestureRef = useRef<GestureState>(makeGestureState());
@@ -828,6 +829,21 @@ export default function FullscreenGlobe({
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
+          {permissionError && (
+            <div style={{
+              maxWidth: 360,
+              background: 'rgba(127,29,29,0.78)',
+              border: '1px solid rgba(248,113,113,0.45)',
+              borderRadius: 10,
+              padding: '8px 12px',
+              color: '#fecaca',
+              fontSize: 11,
+              fontWeight: 800,
+              lineHeight: 1.4,
+            }}>
+              {permissionError}
+            </div>
+          )}
           {/* Year filter toggle */}
           <button
             onClick={() => setShowFilter(v => !v)}

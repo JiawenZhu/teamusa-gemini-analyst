@@ -63,11 +63,8 @@ export default function Page() {
   };
 
   const {
-    voiceEnabled,
-    setVoiceEnabled,
     micState,
     isSpeaking,
-    playNativeTTS,
     stopAudio,
     startListening,
     stopListening,
@@ -270,64 +267,11 @@ export default function Page() {
     setCL(true);
     const m = msg;
 
-    if (voiceEnabled) {
-      let rendered = "";
-      isStreamingChatRef.current = true;
-      setChat(c => [...c, { role: "bot", text: "" }]);
-
-      try {
-        await sendChatStream(
-          m,
-          result.archetype_id,
-          historySnapshot,
-          { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined },
-          (text) => {
-            // Strip raw backend tool calls that shouldn't render
-            const clean = text.replace(/trigger_map_view\([^)]*\)/g, "").trim();
-            if (!clean) return;
-            rendered += (rendered ? " " : "") + clean;
-            setChat(c => {
-              const updated = [...c];
-              updated[updated.length - 1] = { role: "bot", text: rendered };
-              return updated;
-            });
-          },
-          (fullText) => {
-            // Strip raw tool calls from the final text too
-            const cleanFull = fullText.replace(/trigger_map_view\([^)]*\)/g, "").trim();
-            setChat(c => {
-              const updated = [...c];
-              updated[updated.length - 1] = { role: "bot", text: cleanFull || rendered };
-              return updated;
-            });
-            isStreamingChatRef.current = false;
-            setCL(false);
-            playNativeTTS(cleanFull || rendered);
-          },
-          undefined, // signal
-          (city, lat, lng) => fireTriggerCity(city, lat, lng),
-        );
-      } catch (err) {
-        console.warn("Stream failed, falling back:", err);
-        isStreamingChatRef.current = false;
-        const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, historySnapshot, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
-        if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
-        setChat(c => {
-          const updated = [...c];
-          updated[updated.length - 1] = { role: "bot", text: reply };
-          return updated;
-        });
-        setCL(false);
-        if (reply) playNativeTTS(reply);
-      }
-    } else {
-      // Non-streaming path
-      const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, historySnapshot, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
-      if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
-      setChat(c => [...c, { role: "bot", text: reply }]);
-      setCL(false);
-    }
-  }, [msg, result, voiceEnabled, playNativeTTS, h, w, age]);
+    const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, historySnapshot, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
+    if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
+    setChat(c => [...c, { role: "bot", text: reply }]);
+    setCL(false);
+  }, [msg, result, h, w, age]);
 
   const bgAccent = result?.archetype?.color || glitchArch?.color || "transparent";
   const accent = result?.archetype?.color || "#C9A227";
@@ -559,7 +503,6 @@ export default function Page() {
                     result={result}
                     chat={chat} msg={msg} setMsg={setMsg} chatLoading={chatLoading} doChat={doChat}
                     clearChat={clearChat}
-                    voiceEnabled={voiceEnabled} setVoiceEnabled={setVoiceEnabled} stopAudio={stopAudio}
                     isSpeaking={isSpeaking} micState={micState}
                     startListening={() => startListening("User biometrics: " + (result?.archetype.description || ""), result?.archetype_id)}
                     stopListening={stopListening}
@@ -752,7 +695,6 @@ export default function Page() {
             }}
             pauseGesture={showStatsModal}
             voiceAssistant={{
-              voiceEnabled,
               micState,
               toggleLive: (prompt?: string) => toggleLive(prompt, result?.archetype_id),
             }}

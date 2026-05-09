@@ -1,10 +1,57 @@
 "use client";
-import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { Sparkles, Volume2, VolumeX, Mic, MicOff, ArrowUp, User, RotateCcw } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Sparkles, Mic, MicOff, ArrowUp, User, RotateCcw, Globe, BarChart2, Dumbbell, History } from "lucide-react";
 import type { MatchResult } from "@/lib/api";
 import { FormattedBotMessage } from "./FormattedBotMessage";
 import { AIGuidelinesPanel } from "./AIGuidelinesPanel";
+
+type PersonaMode = "analyst" | "coach" | "historian";
+
+const PERSONA_QUESTIONS: Record<PersonaMode, { icon: string; text: string }[]> = {
+  analyst: [
+    { icon: "📏", text: "Which Team USA sports have the tallest average athletes, and how has that changed over time?" },
+    { icon: "⚖️", text: "Which sports show the biggest difference in average height and weight between medalists and non-medalists?" },
+    { icon: "🧬", text: "For Team USA, does BMI correlate more strongly with medal success in strength sports or endurance sports?" },
+    { icon: "👩", text: "How have Team USA women's participation rates changed across Summer Olympic history?" },
+    { icon: "🎯", text: "Which Team USA sports have become more specialized by body type over time?" },
+    { icon: "⏳", text: "What is the average age of Team USA medalists by sport, and which sports favor younger or older athletes?" },
+  ],
+  coach: [
+    { icon: "🏋️", text: "Based on my archetype match, what are the top 3 Olympic sports historically aligned with my body type?" },
+    { icon: "💪", text: "What training focus — strength, endurance, or technique — do athletes in my archetype historically prioritize?" },
+    { icon: "📈", text: "At what age do athletes in my archetype typically peak in competition, based on Team USA history?" },
+    { icon: "🥇", text: "Which sports give athletes with my BMI range the highest historical medal rate in Team USA?" },
+    { icon: "🏃", text: "How does my height-to-weight ratio compare to the most decorated Team USA athletes in my cluster?" },
+    { icon: "🎽", text: "What are the physical benchmarks of a medalist in the sport most aligned with my archetype?" },
+  ],
+  historian: [
+    { icon: "🏛️", text: "Which Olympic host city has the most Team USA medals, and what sports drove that success?" },
+    { icon: "🌍", text: "How did Team USA's sport composition evolve from the 1896 Athens Games to the 2016 Rio Games?" },
+    { icon: "🕰️", text: "Which decade was the most dominant era for Team USA in the Summer Olympics, and why?" },
+    { icon: "⚡", text: "Which individual events have Team USA athletes won the most gold medals in across all Games?" },
+    { icon: "🔄", text: "How have the number of Olympic events and Team USA's participation changed since 1896?" },
+    { icon: "🏅", text: "Which Team USA athletes appeared in the most Olympic Games, and what sports kept them competing longest?" },
+  ],
+};
+
+const PERSONA_CONFIG: Record<PersonaMode, { label: string; icon: React.ReactNode; description: string }> = {
+  analyst: {
+    label: "Analyst",
+    icon: <BarChart2 className="w-3.5 h-3.5" />,
+    description: "Biometric data & body-type trends",
+  },
+  coach: {
+    label: "Coach",
+    icon: <Dumbbell className="w-3.5 h-3.5" />,
+    description: "Training insights for your archetype",
+  },
+  historian: {
+    label: "Historian",
+    icon: <History className="w-3.5 h-3.5" />,
+    description: "120 years of Olympic history",
+  },
+};
 
 export function ChatPanel({
   result,
@@ -13,15 +60,14 @@ export function ChatPanel({
   setMsg,
   chatLoading,
   doChat,
-  voiceEnabled,
-  setVoiceEnabled,
-  stopAudio,
   isSpeaking,
   micState,
+  permissionError,
   startListening,
   stopListening,
   chatContainerRef,
   clearChat,
+  onOpenGlobe,
 }: {
   result: MatchResult | null;
   chat: { role: string; text: string; sealed?: boolean; fromVoice?: boolean }[];
@@ -29,17 +75,26 @@ export function ChatPanel({
   setMsg: (v: string) => void;
   chatLoading: boolean;
   doChat: (overrideMsg?: string) => void;
-  voiceEnabled: boolean;
-  setVoiceEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-  stopAudio: () => void;
   isSpeaking: boolean;
   micState: "idle" | "listening" | "processing" | "speaking";
+  permissionError?: string | null;
   startListening: () => void;
   stopListening: () => void;
   chatContainerRef: React.RefObject<HTMLDivElement | null>;
   clearChat: () => void;
+  onOpenGlobe?: () => void;
 }) {
   const [isTyping, setIsTyping] = React.useState(false);
+  const [personaMode, setPersonaMode] = React.useState<PersonaMode>("analyst");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-expand textarea on content change
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+    }
+  }, [msg]);
   
   if (!result) return null;
 
@@ -78,28 +133,30 @@ export function ChatPanel({
           <p className="text-[11px] font-bold text-slate-400 tracking-wider uppercase">Powered by Live Olympic Database</p>
         </div>
         
-        <button 
-          onClick={() => { if (voiceEnabled) stopAudio(); setVoiceEnabled(v => !v); }}
-          className={`
-            flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs transition-all duration-200 border
-            ${voiceEnabled 
-              ? "bg-slate-900 border-slate-900 text-white shadow-md" 
-              : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"}
-          `}
-        >
-          {voiceEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-          <span>{voiceEnabled ? "Voice Enabled" : "Voice Off"}</span>
-        </button>
 
-        {chat.length > 0 && (
-          <button 
-            onClick={clearChat}
-            title="Clear Chat"
-            className="p-2.5 rounded-full bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition-all duration-200 shadow-sm"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        )}
+
+        <div className="flex items-center gap-2">
+          {onOpenGlobe && (
+            <button 
+              onClick={onOpenGlobe}
+              title="Open World Map"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all duration-200 font-bold text-xs shadow-sm"
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Explore Olympic World Map</span>
+            </button>
+          )}
+
+          {chat.length > 0 && (
+            <button 
+              onClick={clearChat}
+              title="Clear Chat"
+              className="p-2.5 rounded-full bg-slate-50 border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 hover:border-red-100 transition-all duration-200 shadow-sm"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       <AIGuidelinesPanel />
@@ -108,55 +165,88 @@ export function ChatPanel({
         ref={chatContainerRef} 
         className="min-h-[250px] max-h-[500px] overflow-y-auto mb-6 pr-2 flex flex-col gap-8 scroll-smooth"
       >
-        {/* ── Empty state with starter chips ── */}
         {chat.length === 0 && !chatLoading && (
-          <div className="flex flex-col items-center justify-center py-10 gap-8">
-            <div className="text-center space-y-2">
+          <div className="flex flex-col items-center justify-center py-8 gap-6">
+            {/* Header */}
+            <div className="text-center space-y-1.5">
               <div className="text-4xl animate-bounce">✨</div>
               <p className="text-lg font-black text-slate-900 tracking-tight">Your AI Analyst is Active</p>
-              <p className="text-sm text-slate-500 max-w-[280px] leading-relaxed">Ask anything about your archetype, Team USA history, or the host cities.</p>
+              <p className="text-sm text-slate-500 max-w-[300px] leading-relaxed">
+                Choose a mode to explore questions tailored to your archetype.
+              </p>
             </div>
-            
-            <div className="flex flex-wrap gap-2 justify-center max-w-2xl">
-              {[
-                { icon: "📏", text: "Which Team USA sports have the tallest average athletes, and how has that changed over time?" },
-                { icon: "⚖️", text: "Which sports show the biggest difference in average height and weight between medalists and non-medalists?" },
-                { icon: "🧬", text: "For Team USA, does BMI correlate more strongly with medal success in strength sports or endurance sports?" },
-                { icon: "👩", text: "How have Team USA women’s participation rates changed across Summer Olympic history?" },
-                { icon: "🎯", text: "Which Team USA sports have become more specialized by body type over time?" },
-                { icon: "⏳", text: "What is the average age of Team USA medalists by sport, and which sports favor younger or older athletes?" },
-              ].map(({ icon, text }) => (
-                <button
-                  key={text}
-                  disabled={isTyping || chatLoading}
-                  onClick={() => {
-                    if (isTyping || chatLoading) return;
-                    setIsTyping(true);
-                    let current = "";
-                    let i = 0;
-                    setMsg("");
-                    
-                    const interval = setInterval(() => {
-                      current += text[i];
-                      setMsg(current);
-                      i++;
+
+            {/* ── Persona Toggle Pills ── */}
+            <div className="flex gap-2 p-1 bg-slate-100 rounded-2xl">
+              {(Object.keys(PERSONA_CONFIG) as PersonaMode[]).map((mode) => {
+                const cfg = PERSONA_CONFIG[mode];
+                const isActive = personaMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setPersonaMode(mode)}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200
+                      ${isActive
+                        ? "bg-white shadow-sm text-slate-900 shadow-slate-200"
+                        : "text-slate-500 hover:text-slate-700"}
+                    `}
+                    style={isActive ? { color: result.archetype.color } : {}}
+                  >
+                    <span style={isActive ? { color: result.archetype.color } : {}}>{cfg.icon}</span>
+                    {cfg.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Active mode description */}
+            <p className="text-xs text-slate-400 font-medium tracking-wide -mt-3">
+              {PERSONA_CONFIG[personaMode].description}
+            </p>
+
+            {/* ── Question Chips (animated on mode switch) ── */}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={personaMode}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.18 }}
+                className="flex flex-wrap gap-2 justify-center max-w-2xl"
+              >
+                {PERSONA_QUESTIONS[personaMode].map(({ icon, text }) => (
+                  <button
+                    key={text}
+                    disabled={isTyping || chatLoading}
+                    onClick={() => {
+                      if (isTyping || chatLoading) return;
+                      setIsTyping(true);
+                      let current = "";
+                      let i = 0;
+                      setMsg("");
+                      const interval = setInterval(() => {
+                        current += text[i];
+                        setMsg(current);
+                        i++;
                         if (i >= text.length) {
                           clearInterval(interval);
                           setIsTyping(false);
                           setTimeout(() => doChat(text), 400);
                         }
-                    }, 30);
-                  }}
-                  className={`
-                    bg-slate-50 hover:bg-white hover:shadow-md border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold text-slate-700 flex items-center gap-3 transition-all duration-200 group
-                    ${isTyping || chatLoading ? "opacity-50 cursor-not-allowed" : "active:scale-95"}
-                  `}
-                >
-                  <span className="text-lg group-hover:scale-125 transition-transform">{icon}</span>
-                  <span>{text}</span>
-                </button>
-              ))}
-            </div>
+                      }, 30);
+                    }}
+                    className={`
+                      bg-slate-50 hover:bg-white hover:shadow-md border border-slate-200 rounded-2xl px-5 py-3 text-sm font-bold text-slate-700 flex items-center gap-3 transition-all duration-200 group text-left
+                      ${isTyping || chatLoading ? "opacity-50 cursor-not-allowed" : "active:scale-95"}
+                    `}
+                  >
+                    <span className="text-lg group-hover:scale-125 transition-transform flex-shrink-0">{icon}</span>
+                    <span>{text}</span>
+                  </button>
+                ))}
+              </motion.div>
+            </AnimatePresence>
           </div>
         )}
 
@@ -189,7 +279,11 @@ export function ChatPanel({
                   )}
                 </>
               ) : (
-                <FormattedBotMessage text={m.text} color={result.archetype.color} />
+                <FormattedBotMessage
+                  text={m.text}
+                  color={result.archetype.color}
+                  onQuickAsk={(q) => doChat(q)}
+                />
               )}
             </div>
           </motion.div>
@@ -210,25 +304,30 @@ export function ChatPanel({
       </div>
 
       {/* Input Area */}
+      {permissionError && (
+        <div className="mb-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-bold leading-relaxed text-red-600">
+          {permissionError}
+        </div>
+      )}
       <div className={`
         flex items-end gap-3 p-2 pl-6 bg-slate-50 border-2 rounded-[28px] shadow-inner transition-all duration-300
         focus-within:bg-white focus-within:border-slate-200 focus-within:shadow-xl focus-within:shadow-slate-200/50
       `}>
         <textarea
           id="chat-input"
+          ref={textareaRef}
           value={msg}
           rows={1}
           disabled={isTyping || chatLoading}
-          onChange={e => {
-            setMsg(e.target.value);
-            e.target.style.height = "auto";
-            e.target.style.height = Math.min(e.target.scrollHeight, 130) + "px";
-          }}
+          onChange={e => setMsg(e.target.value)}
           onKeyDown={e => {
-            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); doChat(); }
+            if (e.key === "Enter" && !e.shiftKey) { 
+              e.preventDefault(); 
+              doChat(); 
+            }
           }}
           placeholder={isTyping ? "Typing..." : micState === "listening" ? "Listening to you…" : "Ask Gemini anything…"}
-          className="flex-1 bg-transparent border-none text-slate-900 text-base outline-none resize-none py-3 font-medium placeholder:text-slate-400 min-h-[48px] max-h-[130px] disabled:opacity-70"
+          className="flex-1 bg-transparent border-none text-slate-900 text-base outline-none resize-none py-3 font-medium placeholder:text-slate-400 min-h-[48px] max-h-[160px] disabled:opacity-70 transition-[height] duration-100 ease-out"
         />
         
         {/* Action Buttons */}

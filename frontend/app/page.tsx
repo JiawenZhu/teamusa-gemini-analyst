@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback, startTransition } from "react";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { fetchStats, fetchArchetypes, matchBiometrics, fetchTimeline, sendChat, sendChatStream, registerLocation } from "@/lib/api";
 
 import type { DatasetStats, ArchetypeProfile, MatchResult, TimelinePoint, LocationData } from "@/lib/api";
@@ -22,13 +23,20 @@ export default function Page() {
   const [archetypes, setArchetypes] = useState<ArchetypeProfile[]>([]);
   const [paraArchetypes, setParaArchetypes] = useState<ArchetypeProfile[]>([]);
   const [selected, setSelected] = useState<ArchetypeProfile | null>(null);
-  const [h, setH] = useState(""); const [w, setW] = useState(""); const [age, setAge] = useState("");
-  const [mode, setMode] = useState<"olympic" | "paralympic">("olympic");
+
+  // ── Persisted across refreshes via localStorage ──────────────────────────
+  const [h, setH] = useLocalStorage<string>("dna_h", "");
+  const [w, setW] = useLocalStorage<string>("dna_w", "");
+  const [age, setAge] = useLocalStorage<string>("dna_age", "");
+  const [mode, setMode] = useLocalStorage<"olympic" | "paralympic">("dna_mode", "olympic");
+  const [result, setResult] = useLocalStorage<MatchResult | null>("dna_result", null);
+  const [chat, setChat] = useLocalStorage<{ role: string; text: string; sealed?: boolean }[]>("dna_chat", []);
+  // ─────────────────────────────────────────────────────────────────────────
+
+
   const [matching, setMatching] = useState(false);
-  const [result, setResult] = useState<MatchResult | null>(null);
   const [glitchArch, setGlitchArch] = useState<ArchetypeProfile | null>(null);
   const [timeline, setTimeline] = useState<TimelinePoint[]>([]);
-  const [chat, setChat] = useState<{ role: string; text: string; sealed?: boolean }[]>([]);
   const [msg, setMsg] = useState("");
   const [chatLoading, setCL] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -63,15 +71,12 @@ export default function Page() {
   };
 
   const {
-    voiceEnabled,
-    setVoiceEnabled,
-    micState,
     isSpeaking,
-    playNativeTTS,
-    stopAudio,
+    permissionError,
     startListening,
     stopListening,
     toggleLive,
+    micState,
   } = useVoiceAssistant();
 
   const resultRef = useRef<HTMLDivElement>(null);
@@ -123,8 +128,19 @@ export default function Page() {
     }
   }, [chat, chatLoading]);
 
+  // Restore step progress from persisted result on initial mount
+  useEffect(() => {
+    if (result) {
+      setCurrentStep(prev => (prev < 2 ? 2 : prev) as 1 | 2 | 3);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const doMatch = useCallback(async () => {
     if (!h || !w) return;
+    // Clear previous session
+    setChat([]);
+    chatHistoryRef.current = [];
     setMatching(true); setResult(null); setGlitchArch(null);
     const r = await matchBiometrics(parseFloat(h), parseFloat(w), age ? parseInt(age) : undefined, mode);
     let ticks = 0;
@@ -234,58 +250,23 @@ export default function Page() {
     chatHistoryRef.current = currentChat;
     setMsg("");
     setCL(true);
-    const m = finalMsg;
-
-    if (voiceEnabled) {
-      let rendered = "";
-      isStreamingChatRef.current = true;
-      setChat(c => [...c, { role: "model", text: "" }]);
-      try {
-        await sendChatStream(
-          m, result.archetype_id, historySnapshot,
-          { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined },
-          (text) => {
-            const clean = text.replace(/trigger_map_view\([^)]*\)/g, "").trim();
-            if (!clean) return;
-            rendered += (rendered ? " " : "") + clean;
-            setChat(c => {
-              const updated = [...c];
-              updated[updated.length - 1] = { role: "model", text: rendered };
-              return updated;
-            });
-          },
-          (fullText) => {
-            const cleanFull = fullText.replace(/trigger_map_view\([^)]*\)/g, "").trim();
-            setChat(c => {
-              const updated = [...c];
-              updated[updated.length - 1] = { role: "model", text: cleanFull || rendered };
-              return updated;
-            });
-            isStreamingChatRef.current = false;
-            setCL(false);
-            playNativeTTS(cleanFull || rendered);
-          },
-          undefined,
-          (city, lat, lng) => fireTriggerCity(city, lat, lng),
-        );
-      } catch {
-        isStreamingChatRef.current = false;
-        setCL(false);
-      }
-    } else {
-      const { text: reply, mapTrigger } = await sendChat(m, result.archetype_id, historySnapshot, { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined });
-      if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
-      setChat(c => [...c, { role: "model", text: reply }]);
-      setCL(false);
-    }
-  }, [msg, result, voiceEnabled, playNativeTTS, h, w, age]);
+    
+    const { text: reply, mapTrigger } = await sendChat(
+      finalMsg, 
+      result.archetype_id, 
+      historySnapshot, 
+      { height_cm: h ? parseFloat(h) : undefined, weight_kg: w ? parseFloat(w) : undefined, age: age ? parseInt(age) : undefined }
+    );
+    if (mapTrigger) fireTriggerCity(mapTrigger.city, mapTrigger.lat, mapTrigger.lng);
+    setChat(c => [...c, { role: "model", text: reply }]);
+    setCL(false);
+  }, [msg, result]);
 
   const clearChat = useCallback(() => {
     setChat([]);
     chatHistoryRef.current = [];
     setMsg("");
-    stopAudio();
-  }, [stopAudio]);
+  }, []);
 
   const bgAccent = result?.archetype?.color || glitchArch?.color || "transparent";
   const accent = result?.archetype?.color || "#C9A227";
@@ -446,7 +427,7 @@ export default function Page() {
                 result={result} glitchArch={glitchArch} resultRef={resultRef}
                 shareDna={shareDna} copied={copied}
               />
-              
+
               {result && (
                 <section id="chat-panel" className="max-w-5xl mx-auto px-6 py-12 scroll-mt-24">
                   <div className="mb-8 flex items-center gap-4 bg-slate-50 border border-slate-100 rounded-2xl p-4 max-w-2xl mx-auto">
@@ -463,10 +444,11 @@ export default function Page() {
                     result={result}
                     chat={chat} msg={msg} setMsg={setMsg} chatLoading={chatLoading} doChat={doChat}
                     clearChat={clearChat}
-                    voiceEnabled={voiceEnabled} setVoiceEnabled={setVoiceEnabled} stopAudio={stopAudio}
                     isSpeaking={isSpeaking} micState={micState}
+                    permissionError={permissionError}
                     startListening={() => startListening("User biometrics: " + (result?.archetype.description || ""), result?.archetype_id)}
                     stopListening={stopListening}
+                    onOpenGlobe={openFullscreenGlobe}
                     chatContainerRef={chatContainerRef}
                   />
                 </section>
@@ -641,13 +623,14 @@ export default function Page() {
             }}
             pauseGesture={showStatsModal}
             voiceAssistant={{
-              voiceEnabled,
               micState,
+              permissionError,
               toggleLive: (prompt?: string) => toggleLive(prompt, result?.archetype_id),
             }}
           />
         )}
       </AnimatePresence>
+
     </div>
   );
 }

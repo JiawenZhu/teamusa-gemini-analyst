@@ -1,12 +1,10 @@
 "use client";
 import { useState, useCallback, useRef } from "react";
-import { GoogleGenAI, Modality } from "@google/genai";
 
 // Gemini Live API outputs 24kHz signed 16-bit little-endian PCM
 const OUTPUT_SAMPLE_RATE = 24000;
-const MODEL = "gemini-3.1-flash-live-preview";
-
 export type MicState = "idle" | "listening" | "processing" | "speaking";
+type LiveSessionHandle = { close?: () => void };
 
 // ── Downsample float32 PCM to 16kHz Int16 ─────────────────────────────────────
 function downsampleTo16k(float32: Float32Array, fromRate: number): Int16Array {
@@ -27,14 +25,15 @@ function downsampleTo16k(float32: Float32Array, fromRate: number): Int16Array {
 }
 
 export function useVoiceAssistant() {
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [micState, setMicState] = useState<MicState>("idle");
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
   // Ref mirrors isSpeaking so the AudioWorklet closure (stale) can read it
   const isSpeakingRef = useRef(false);
 
   // Session ref — the live session object from @google/genai
-  const sessionRef = useRef<any>(null);
+  const sessionRef = useRef<LiveSessionHandle | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
   const playbackCtxRef = useRef<AudioContext | null>(null);
   const captureCtxRef = useRef<AudioContext | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -108,6 +107,7 @@ export function useVoiceAssistant() {
       try { sessionRef.current.close?.(); } catch { }
       sessionRef.current = null;
     }
+    wsRef.current = null;
     nextPlayTimeRef.current = 0;
   }, []);
 
@@ -116,7 +116,7 @@ export function useVoiceAssistant() {
     cleanup();
     setMicState("idle");
     setIsSpeaking(false);
-    setVoiceEnabled(false);
+    setPermissionError(null);
     isConnectingRef.current = false;
   }, [cleanup]);
 
@@ -128,9 +128,27 @@ export function useVoiceAssistant() {
     if (isConnectingRef.current || sessionRef.current) return;
     isConnectingRef.current = true;
     abortRef.current = false;
+    setPermissionError(null);
     const mySessionId = ++sessionIdRef.current; // Stamp this connection
 
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("Microphone access is not available in this browser context.");
+      }
+
+      if (navigator.permissions?.query) {
+        try {
+          const status = await navigator.permissions.query({ name: "microphone" as PermissionName });
+          if (status.state === "denied") {
+            throw new DOMException("Microphone permission is blocked for this site.", "NotAllowedError");
+          }
+        } catch (permissionCheckError) {
+          if (permissionCheckError instanceof DOMException && permissionCheckError.name === "NotAllowedError") {
+            throw permissionCheckError;
+          }
+        }
+      }
+
       // 1. Request microphone
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
@@ -166,11 +184,14 @@ export function useVoiceAssistant() {
       console.log("🔗 Connecting to backend WebSocket at:", wsUrl.toString());
       const ws = new WebSocket(wsUrl.toString());
       ws.binaryType = "arraybuffer";
+      wsRef.current = ws;
 
       ws.onopen = () => {
         console.log("✅ WebSocket to backend live session connected!");
+        if (_initialContext?.trim()) {
+          ws.send(JSON.stringify({ type: "context_update", context: { source: "initial_live_prompt", text: _initialContext } }));
+        }
         setMicState("listening");
-        setVoiceEnabled(true);
         isConnectingRef.current = false;
       };
 
@@ -202,7 +223,7 @@ export function useVoiceAssistant() {
             } else if (payload.type === "status") {
               console.log("Live status:", payload.message);
             }
-          } catch (err) { }
+          } catch { }
         }
       };
 
@@ -218,7 +239,6 @@ export function useVoiceAssistant() {
           cleanup();
           setMicState("idle");
           setIsSpeaking(false);
-          setVoiceEnabled(false);
         }
       };
 
@@ -264,7 +284,7 @@ export function useVoiceAssistant() {
       await captureCtx.audioWorklet.addModule(workletUrl);
 
       const workletNode = new AudioWorkletNode(captureCtx, "pcm-processor");
-      // @ts-ignore
+      // @ts-expect-error AudioWorkletNode is compatible enough for cleanup disconnect.
       processorRef.current = workletNode;
 
       let lastLogTime = 0;
@@ -326,7 +346,13 @@ export function useVoiceAssistant() {
       console.error("❌ Live API setup failed:", e);
       cleanup();
       setMicState("idle");
-      setVoiceEnabled(false);
+      if (e instanceof DOMException && e.name === "NotAllowedError") {
+        setPermissionError("Microphone permission is blocked. Allow microphone access for localhost in the browser address bar, then try Voice AI again.");
+      } else if (e instanceof DOMException && e.name === "NotFoundError") {
+        setPermissionError("No microphone was found. Connect or enable a microphone, then try Voice AI again.");
+      } else {
+        setPermissionError(e instanceof Error ? e.message : "Voice AI could not start. Check microphone permissions and backend connection.");
+      }
       isConnectingRef.current = false;
     }
   }, [cleanup, playPCMChunk]);
@@ -339,26 +365,32 @@ export function useVoiceAssistant() {
     }
   }, [connectLive, disconnectLive]);
 
+  const sendLiveContext = useCallback((context: unknown) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify({ type: "context_update", context }));
+    return true;
+  }, []);
+
   const startListening = useCallback((ctx?: string, archetypeId?: string) => {
     connectLive(ctx, archetypeId).catch(console.error);
   }, [connectLive]);
 
   const stopListening = useCallback(() => disconnectLive(), [disconnectLive]);
-  const playNativeTTS = useCallback(async (_text: string) => { }, []);
   const stopAudio = useCallback(() => disconnectLive(), [disconnectLive]);
 
   return {
-    voiceEnabled,
-    setVoiceEnabled,
     micState,
     setMicState,
     isSpeaking,
     setIsSpeaking,
-    playNativeTTS,
+    permissionError,
+    clearPermissionError: () => setPermissionError(null),
     stopAudio,
     startListening,
     stopListening,
     toggleLive,
+    sendLiveContext,
     connectLive,
     disconnectLive,
   };

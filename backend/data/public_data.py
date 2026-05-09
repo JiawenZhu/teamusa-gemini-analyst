@@ -13,6 +13,41 @@ import logging
 from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
+ 
+OLYMPIC_CITY_COORDS: dict[str, dict] = {
+    "Athens":          {"lat": 37.9838,  "lng": 23.7275},
+    "Paris":           {"lat": 48.8566,  "lng": 2.3522},
+    "St. Louis":       {"lat": 38.6270,  "lng": -90.1994},
+    "London":          {"lat": 51.5074,  "lng": -0.1278},
+    "Stockholm":       {"lat": 59.3293,  "lng": 18.0686},
+    "Antwerp":         {"lat": 51.2194,  "lng": 4.4025},
+    "Amsterdam":       {"lat": 52.3676,  "lng": 4.9041},
+    "Los Angeles":     {"lat": 34.0522,  "lng": -118.2437},
+    "Berlin":          {"lat": 52.5200,  "lng": 13.4050},
+    "Helsinki":        {"lat": 60.1699,  "lng": 24.9384},
+    "Melbourne":       {"lat": -37.8136, "lng": 144.9631},
+    "Rome":            {"lat": 41.9028,  "lng": 12.4964},
+    "Tokyo":           {"lat": 35.6762,  "lng": 139.6503},
+    "Mexico City":     {"lat": 19.4326,  "lng": -99.1332},
+    "Munich":          {"lat": 48.1351,  "lng": 11.5820},
+    "Montreal":        {"lat": 45.5017,  "lng": -73.5673},
+    "Moscow":          {"lat": 55.7558,  "lng": 37.6173},
+    "Seoul":           {"lat": 37.5665,  "lng": 126.9780},
+    "Barcelona":       {"lat": 41.3851,  "lng": 2.1734},
+    "Atlanta":         {"lat": 33.7490,  "lng": -84.3880},
+    "Sydney":          {"lat": -33.8688, "lng": 151.2093},
+    "Beijing":         {"lat": 39.9042,  "lng": 116.4074},
+    "Rio de Janeiro":  {"lat": -22.9068, "lng": -43.1729},
+    "Sarajevo":        {"lat": 43.8563,  "lng": 18.4131},
+    "Calgary":         {"lat": 51.0447,  "lng": -114.0719},
+    "Albertville":     {"lat": 45.6756,  "lng": 6.3921},
+    "Lillehammer":     {"lat": 61.1151,  "lng": 10.4662},
+    "Nagano":          {"lat": 36.6513,  "lng": 138.1810},
+    "Salt Lake City":  {"lat": 40.7608,  "lng": -111.8910},
+    "Turin":           {"lat": 45.0703,  "lng": 7.6869},
+    "Vancouver":       {"lat": 49.2827,  "lng": -123.1207},
+    "Sochi":           {"lat": 43.5855,  "lng": 39.7231},
+}
 
 # Fallback path if you download it manually
 LOCAL_CSV_PATH = os.path.join(os.path.dirname(__file__), "athlete_events.csv")
@@ -306,12 +341,31 @@ def match_biometrics(height_cm: float, weight_kg: float, age: int | None) -> dic
             ["Sport", "Year", "Height", "Weight", "Sex", "Medal"]
         ].to_dict("records")
 
+        # Build all_centroids list
+        centroids_orig = _scaler.inverse_transform(_kmeans.cluster_centers_)
+        ci_to_arch = {}
+        for row in _df[["cluster_idx","archetype_id"]].drop_duplicates().itertuples():
+            ci_to_arch[row.cluster_idx] = row.archetype_id
+
+        all_centroids = []
+        for ci, (ch, cw, cbmi) in enumerate(centroids_orig):
+            all_centroids.append({
+                "archetype_id": ci_to_arch.get(ci, "unknown"),
+                "height_cm": round(float(ch), 1),
+                "weight_kg": round(float(cw), 1),
+                "bmi": round(float(cbmi), 1),
+                "is_user_cluster": ci == cluster_idx,
+            })
+
         return {
-            "archetype_id":   archetype_id,
-            "archetype":      cluster_data,
-            "user_bmi":       round(bmi, 1),
-            "closest_athletes": closest,
-            "percentile_note": _compute_percentile(height_cm, weight_kg),
+            "archetype_id":      archetype_id,
+            "archetype":         cluster_data,
+            "user_bmi":          round(bmi, 1),
+            "closest_athletes":  closest,
+            "percentile_note":   _compute_percentile(height_cm, weight_kg),
+            "height_percentile": round(float((_df["Height"] < height_cm).mean()), 3),
+            "weight_percentile": round(float((_df["Weight"] < weight_kg).mean()), 3),
+            "all_centroids":     all_centroids,
         }
     else:
         # Fallback: rule-based assignment

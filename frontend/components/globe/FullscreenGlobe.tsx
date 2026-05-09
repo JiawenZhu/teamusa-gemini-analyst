@@ -700,8 +700,15 @@ export default function FullscreenGlobe({
 
   useEffect(() => {
     const onText = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.clear) {
+        setLiveMessages([]);
+        setInterimUserText('');
+        return;
+      }
       const { role, text } = (e as CustomEvent<{role: 'agent' | 'user'; text: string}>).detail;
       if (!text?.trim()) return;
+
       setLiveMessages(prev => {
         // User voice utterances are always complete turns — each gets its own sealed bubble
         if (role === 'user') {
@@ -710,9 +717,9 @@ export default function FullscreenGlobe({
         // Agent: append streaming chunks to the current unsealed bubble, or start new
         const last = prev[prev.length - 1];
         if (last && last.role === 'agent' && !last.sealed) {
-          return [...prev.slice(0, -1), { role, text: last.text + text }];
+          return [...prev.slice(0, -1), { role: 'agent', text: last.text + text }];
         }
-        return [...prev, { role, text }];
+        return [...prev, { role: 'agent', text }];
       });
     };
 

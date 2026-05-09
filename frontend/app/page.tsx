@@ -180,23 +180,43 @@ export default function Page() {
   useEffect(() => {
     const handleLiveText = (e: any) => {
       const detail = e.detail;
+      if (detail?.clear) {
+        setChat([]);
+        chatHistoryRef.current = [];
+        return;
+      }
       const text: string = typeof detail === "string" ? detail : (detail?.text ?? "");
-      const role: string = typeof detail === "object" && detail?.role === "user" ? "user" : "model";
+      const role: string = typeof detail === "object" && (detail?.role === "user") ? "user" : "model";
+      
+      // If we are currently streaming a text-based chat response, ignore live voice events 
+      // to prevent mixing the two different logic flows in the same state.
       if (!text || isStreamingChatRef.current) return;
 
       setChat(prev => {
+        let next: { role: string; text: string; sealed?: boolean; fromVoice?: boolean }[];
+        
         if (role === 'user') {
           const lastMsg = prev[prev.length - 1];
+          // If the last message was a streaming model response, insert the user voice text BEFORE it
           if (lastMsg && lastMsg.role === 'model' && !lastMsg.sealed) {
-            return [...prev.slice(0, -1), { role, text, sealed: true }, lastMsg];
+            next = [...prev.slice(0, -1), { role, text, sealed: true, fromVoice: true }, lastMsg];
+          } else {
+            next = [...prev, { role, text, sealed: true, fromVoice: true }];
           }
-          return [...prev, { role, text, sealed: true }];
+        } else {
+          // Model/Agent response
+          if (prev.length > 0 && prev[prev.length - 1].role === role && !prev[prev.length - 1].sealed) {
+            const last = prev[prev.length - 1];
+            next = [...prev.slice(0, -1), { ...last, text: last.text + text }];
+          } else {
+            next = [...prev, { role, text, fromVoice: true }];
+          }
         }
-        if (prev.length > 0 && prev[prev.length - 1].role === role && !prev[prev.length - 1].sealed) {
-           const last = prev[prev.length - 1];
-           return [...prev.slice(0, -1), { role, text: last.text + " " + text }];
-        }
-        return [...prev, { role, text }];
+        
+        // CRITICAL: Keep history ref in sync so subsequent non-voice chats 
+        // include the voice turns in their context
+        chatHistoryRef.current = next;
+        return next;
       });
     };
 
@@ -205,7 +225,9 @@ export default function Page() {
         if (prev.length === 0) return prev;
         const last = prev[prev.length - 1];
         if (last.role === "model" && !last.sealed) {
-          return [...prev.slice(0, -1), { ...last, sealed: true }];
+          const next = [...prev.slice(0, -1), { ...last, sealed: true }];
+          chatHistoryRef.current = next;
+          return next;
         }
         return prev;
       });

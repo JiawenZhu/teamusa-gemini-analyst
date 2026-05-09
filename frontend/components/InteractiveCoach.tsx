@@ -196,14 +196,22 @@ export default function InteractiveCoach({
 
   useEffect(() => {
     const onText = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.clear) {
+        setMessages([]);
+        setInterim("");
+        return;
+      }
       const { role, text } = (e as CustomEvent<{ role: "agent" | "user"; text: string }>).detail;
       if (!text?.trim()) return;
+      
       setMessages(prev => {
         if (role === "user") return [...prev, { role, text, sealed: true }];
+        // Normalize role for local state comparison
         const last = prev[prev.length - 1];
-        if (last && last.role === "agent" && !last.sealed)
-          return [...prev.slice(0, -1), { role, text: last.text + text }];
-        return [...prev, { role, text }];
+        if (last && (last.role === "agent") && !last.sealed)
+          return [...prev.slice(0, -1), { role: "agent", text: last.text + text }];
+        return [...prev, { role: "agent", text }];
       });
     };
     const onComplete = () => {
